@@ -4,8 +4,14 @@
   "slots": {
     "AE2LTPP_ADAPTER_CARD": {
       "left": 178,
-      "top": 42,
+      "top": 78,
       "grid": "VERTICAL"
+    }
+  },
+  "widgets": {
+    "adapterCard": {
+      "right": 2,
+      "top": 72
     }
   }
 }

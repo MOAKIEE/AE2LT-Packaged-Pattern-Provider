@@ -9,7 +9,6 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 import appeng.client.gui.style.StyleManager;
 
-import com.moakiee.ae2lt.client.OverloadedPatternProviderScreen;
 import com.moakiee.ae2lt.packaged.AE2LTPackagedProvider;
 import com.moakiee.ae2lt.packaged.menu.PackagedPatternProviderMenu;
 
@@ -23,11 +22,11 @@ public final class PPClientScreens {
         event.register(PackagedPatternProviderMenu.TYPE, PPClientScreens::createPackagedPatternProviderScreen);
     }
 
-    private static OverloadedPatternProviderScreen<PackagedPatternProviderMenu> createPackagedPatternProviderScreen(
+    private static PackagedPatternProviderScreen createPackagedPatternProviderScreen(
             PackagedPatternProviderMenu menu,
             Inventory inv,
             Component title) {
         var style = StyleManager.loadStyleDoc("/screens/packaged_pattern_provider.json");
-        return new OverloadedPatternProviderScreen(menu, inv, title, style);
+        return new PackagedPatternProviderScreen(menu, inv, title, style);
     }
 }
