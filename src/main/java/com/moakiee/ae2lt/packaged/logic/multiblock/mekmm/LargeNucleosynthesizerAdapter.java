@@ -12,6 +12,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -184,8 +185,23 @@ public final class LargeNucleosynthesizerAdapter implements MultiblockAdapter {
                     port.pos(), port.accessSide());
             if (handler == null) return 0L;
             var toInsert = itemKey.toStack((int) stack.amount());
-            var remainder = handler.insertItem(0, toInsert, mode == Actionable.SIMULATE);
-            return stack.amount() - remainder.getCount();
+            return MekItemInsertion.insertIntoAnySlot(toInsert, mode == Actionable.SIMULATE,
+                    new MekItemInsertion.SlotAccess<>() {
+                        @Override
+                        public int slots() {
+                            return handler.getSlots();
+                        }
+
+                        @Override
+                        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
+                            return handler.insertItem(slot, stack, simulate);
+                        }
+
+                        @Override
+                        public int amount(ItemStack stack) {
+                            return stack.getCount();
+                        }
+                    });
         };
     }
 

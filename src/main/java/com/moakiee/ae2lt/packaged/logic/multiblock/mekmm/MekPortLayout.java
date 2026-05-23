@@ -29,6 +29,22 @@ final class MekPortLayout {
                 b.getStepZ() * backSteps + l.getStepZ() * leftSteps);
     }
 
+    private static Direction accessSide(Direction facing, MekPortSpec.RelativeAccess access) {
+        return switch (access) {
+            case FRONT -> facing;
+            case BACK -> back(facing);
+            case LEFT -> left(facing);
+            case RIGHT -> right(facing);
+            case TOP -> Direction.UP;
+            case BOTTOM -> Direction.DOWN;
+        };
+    }
+
+    private static PortInfo port(BlockPos main, Direction facing, MekPortSpec spec) {
+        return new PortInfo(offset(main, facing, spec.backSteps(), spec.leftSteps(), spec.y()),
+                accessSide(facing, spec.access()));
+    }
+
     // === Large Antiprotonic Nucleosynthesizer (3×3×3) ===
 
     static PortInfo nucleosynthesizerChemicalInput(BlockPos main, Direction facing) {
@@ -76,25 +92,35 @@ final class MekPortLayout {
     }
 
     // === Large Rotary Condensentrator (3×3×3) ===
-    // Chemical port: left y=1, accessed from left
-    static PortInfo rotaryCondensentratorChemical(BlockPos main, Direction facing) {
-        return new PortInfo(offset(main, facing, 0, 1, 1), left(facing));
+    // Chemical input: back-left y=0, accessed from back
+    static PortInfo rotaryCondensentratorChemicalInput(BlockPos main, Direction facing) {
+        return port(main, facing, MekPortSpecs.rotaryChemicalInput());
     }
 
-    // Fluid port: right y=1, accessed from right
-    static PortInfo rotaryCondensentratorFluid(BlockPos main, Direction facing) {
-        return new PortInfo(offset(main, facing, 0, -1, 1), right(facing));
+    // Chemical output: left y=1, accessed from left
+    static PortInfo rotaryCondensentratorChemicalOutput(BlockPos main, Direction facing) {
+        return port(main, facing, MekPortSpecs.rotaryChemicalOutput());
+    }
+
+    // Fluid input: back-right y=0, accessed from back
+    static PortInfo rotaryCondensentratorFluidInput(BlockPos main, Direction facing) {
+        return port(main, facing, MekPortSpecs.rotaryFluidInput());
+    }
+
+    // Fluid output: right y=1, accessed from right
+    static PortInfo rotaryCondensentratorFluidOutput(BlockPos main, Direction facing) {
+        return port(main, facing, MekPortSpecs.rotaryFluidOutput());
     }
 
     // === Large Solar Neutron Activator (3×3×3) ===
-    // Chemical input: back-left y=0, accessed from back or left
+    // Chemical input: back-left y=0, accessed from left
     static PortInfo solarNeutronActivatorInput(BlockPos main, Direction facing) {
-        return new PortInfo(offset(main, facing, 1, 1, 0), back(facing));
+        return port(main, facing, MekPortSpecs.solarInput());
     }
 
     // Chemical output: back-right y=0, accessed from back or right
     static PortInfo solarNeutronActivatorOutput(BlockPos main, Direction facing) {
-        return new PortInfo(offset(main, facing, 1, -1, 0), back(facing));
+        return port(main, facing, MekPortSpecs.solarOutput());
     }
 
     // === Large Pigment Mixer (3×3×2+2) ===

@@ -80,10 +80,8 @@ public final class LargeRotaryCondensentratorAdapter implements MultiblockAdapte
         if (MekReflection.isActive(be)) return null;
 
         Direction facing = MekReflection.getFacing(be);
-        var chemPort = MekPortLayout.rotaryCondensentratorChemical(mainPos, facing);
-        var fluidPort = MekPortLayout.rotaryCondensentratorFluid(mainPos, facing);
-
-        if (!level.isLoaded(chemPort.pos()) || !level.isLoaded(fluidPort.pos())) return null;
+        var chemInputPort = MekPortLayout.rotaryCondensentratorChemicalInput(mainPos, facing);
+        var fluidInputPort = MekPortLayout.rotaryCondensentratorFluidInput(mainPos, facing);
 
         AEFluidKey fluidInput = null;
         long fluidAmount = 0;
@@ -115,17 +113,19 @@ public final class LargeRotaryCondensentratorAdapter implements MultiblockAdapte
             // Condensentrating mode: gas → fluid. Input is chemical.
             // Verify machine is in condensentrating mode (mode field = false means condensentrating)
             if (isDecondensentrating(be)) return null;
-            targets.add(new TargetSlot(level, chemPort.pos(), chemPort.accessSide(),
+            if (!level.isLoaded(chemInputPort.pos())) return null;
+            targets.add(new TargetSlot(level, chemInputPort.pos(), chemInputPort.accessSide(),
                     List.of(new GenericStack(chemicalInput, chemicalAmount)),
                     InsertionStrategy.CUSTOM,
-                    chemicalInserter(level, chemPort)));
+                    chemicalInserter(level, chemInputPort)));
         } else if (fluidInput != null && chemicalInput == null) {
             // Decondensentrating mode: fluid → gas. Input is fluid.
             if (!isDecondensentrating(be)) return null;
-            targets.add(new TargetSlot(level, fluidPort.pos(), fluidPort.accessSide(),
+            if (!level.isLoaded(fluidInputPort.pos())) return null;
+            targets.add(new TargetSlot(level, fluidInputPort.pos(), fluidInputPort.accessSide(),
                     List.of(new GenericStack(fluidInput, fluidAmount)),
                     InsertionStrategy.CUSTOM,
-                    fluidInserter(level, fluidPort)));
+                    fluidInserter(level, fluidInputPort)));
         } else {
             return null;
         }
@@ -147,13 +147,13 @@ public final class LargeRotaryCondensentratorAdapter implements MultiblockAdapte
 
         if (isDecondensentrating(be)) {
             // Output is chemical (gas)
-            var chemPort = MekPortLayout.rotaryCondensentratorChemical(mainPos, facing);
+            var chemPort = MekPortLayout.rotaryCondensentratorChemicalOutput(mainPos, facing);
             if (level.isLoaded(chemPort.pos())) {
                 extractChemical(level, chemPort, filter, results);
             }
         } else {
             // Output is fluid
-            var fluidPort = MekPortLayout.rotaryCondensentratorFluid(mainPos, facing);
+            var fluidPort = MekPortLayout.rotaryCondensentratorFluidOutput(mainPos, facing);
             if (level.isLoaded(fluidPort.pos())) {
                 extractFluid(level, fluidPort, filter, results);
             }

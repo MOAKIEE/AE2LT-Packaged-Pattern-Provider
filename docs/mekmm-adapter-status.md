@@ -9,48 +9,66 @@
 | 机器 | 状态 | 输入类型 | 输出类型 |
 |------|------|----------|----------|
 | 大型电解分离器 | 正常工作 | Fluid | Chemical×2 |
-| 大型反质子核合成器 | 不工作 | Item + Chemical | Item |
-| 大型化学灌注器 | 不工作 | Chemical×2 | Chemical |
-| 大型旋转冷凝器 | 不工作 | Chemical 或 Fluid | Fluid 或 Chemical |
-| 大型太阳能中子活化器 | 不工作 | Chemical | Chemical |
-| 大型颜料混合器 | 不工作 | Chemical×2 | Chemical |
+| 大型反质子核合成器 | 已修复代码，待进游戏验证 | Item + Chemical | Item |
+| 大型化学灌注器 | 已修复 Chemical capability，待进游戏验证 | Chemical×2 | Chemical |
+| 大型旋转冷凝器 | 已修复代码，待进游戏验证 | Chemical 或 Fluid | Fluid 或 Chemical |
+| 大型太阳能中子活化器 | 已修复代码，待进游戏验证 | Chemical | Chemical |
+| 大型颜料混合器 | 已修复 Chemical capability，待进游戏验证 | Chemical×2 | Chemical |
 
 ## 问题分析
 
-只有大型电解分离器能正常工作。该机器的输入是 Fluid（通过 NeoForge 原生 FluidHandler capability），不涉及 Mekanism 化学品输入。
+只有大型电解分离器此前能正常工作。该机器的输入是 Fluid（通过 NeoForge 原生 FluidHandler capability），不涉及 Mekanism 化学品输入。
 
 其余 5 台机器的输入都涉及 Chemical 类型。说明 **化学品插入（insertion）** 环节存在问题。
 
+2026-05-23 代码侧已定位并修复一个核心问题：`mekanism.common.capabilities.Capabilities.CHEMICAL`
+不是 NeoForge `BlockCapability` 本身，而是 Mekanism 的 `MultiTypeCapability`，需要通过 `block()` 取出真正的
+block capability 后再调用 `level.getCapability(...)`。该修复仍需进游戏验证 5 台 Chemical 输入机器是否恢复。
+
+随后根据日志 `https://mclo.gs/dmznkEL` 继续定位到 3 个残留问题：
+
+- Mekanism 1.21.1 的机器活动状态方法是 `getActive()`，不是旧代码查找的 `isActive()`。
+- 大型旋转冷凝器的输入端口应走底层背面端口；旧代码把输入打到了左右输出端口。
+- 大型太阳能中子活化器的输入端口位置正确，但访问侧应为左/右侧；旧代码用背面访问，背面只适合输出。
+- 大型反质子核合成器的物品 handler slot 0 是化学品物品槽；旧代码只插 slot 0，导致实际材料输入槽没有机会接收物品。
+
 ### 已修复的问题
 
-1. **`MekReflection.doLookup()` 中 `.block()` 调用错误**
-   - 旧代码：`Capabilities.CHEMICAL` → `.block()` → `BlockCapability`
-   - 实际情况：NeoForge 1.21.1 中 `Capabilities.CHEMICAL` 已经直接是 `BlockCapability`，无需 `.block()`
-   - 影响：`NoSuchMethodException` 导致整个 doLookup 失败（单一 try 块），所有化学品相关反射全部为 null
-   - 修复：移除 `.block()` 调用，拆分为独立 try 块
+1. **`MekReflection.doLookup()` 中 CHEMICAL capability 解析错误**
+   - 旧代码：直接把 `Capabilities.CHEMICAL` 字段当作 `BlockCapability`
+   - 实际情况：Mekanism 1.21.x 中 `Capabilities.CHEMICAL` 是 `MultiTypeCapability`，真正的 block capability 在 `block()`
+   - 影响：`getChemicalHandler()` 强转失败并返回 null，所有 Chemical 插入都会返回 0
+   - 修复：新增兼容解析逻辑，字段本身是 `BlockCapability` 时直接用；字段是 carrier 时通过 `block()` 取出
 
-2. **`AppmekReflection` 中 `withAmount(long)` 方法不存在**
-   - 旧代码：尝试反射 `MekanismKey.withAmount(long)`
-   - 实际情况：`MekanismKey` 没有 `withAmount` 方法
-   - 修复：改为 `key.getStack()` → `ChemicalStack.copyWithAmount(amount)`
+2. **`AppmekReflection` 中 ChemicalStack 构造路径已调整**
+   - appmek 1.6.3 的 `MekanismKey` 同时提供 `getStack()` 和 `withAmount(long)`
+   - 当前代码使用 `key.getStack()` → `ChemicalStack.copyWithAmount(amount)` 构造带数量的 `ChemicalStack`
+   - 该路径已核对源码，暂不作为主要故障点
 
-### 当前疑似问题
+3. **Mekanism active getter 反射方法名不兼容**
+   - 旧代码：查找 `TileEntityMekanism.isActive()`
+   - 实际情况：Mekanism 1.21.1 源码中是 `getActive()`
+   - 影响：日志出现 `Failed to resolve TileEntityMekanism: ... isActive()`，适配层无法可靠判断机器是否正在运行
+   - 修复：按 `getActive` → `isActive` 顺序兼容查找
 
-电解分离器的输出提取（Chemical extraction）能正常工作，说明：
-- `chemicalBlockCapability` 已正确解析
-- `getChemicalHandler()` 能获取到 handler
-- `extractChemical()` / `getChemicalInTank()` 等方法正常
+4. **大型旋转冷凝器输入/输出端口混用**
+   - 旧代码：Chemical 始终使用左侧 y=1 端口，Fluid 始终使用右侧 y=1 端口
+   - 实际情况：输入必须从相对背面底层端口插入；输出才从左右 y=1 端口提取
+   - 修复：新增旋转冷凝器 Chemical/Fluid 输入端口和输出端口的独立规格
 
-但化学品输入仍然失败，可能原因：
+5. **大型太阳能中子活化器输入访问侧错误**
+   - 旧代码：后左端口从背面访问
+   - 实际情况：MekMM 对该机器的 Chemical 插入限制为相对 LEFT/RIGHT，背面用于提取
+   - 修复：输入端口改为后左位置、左侧访问；输出保持后右位置、背面访问
 
-1. **`MekanismKey.getStack()` 方法可能不存在**
-   - appmek 1.6.3 中 `MekanismKey` 可能没有 `getStack()` 方法
-   - 可能的正确方法名：`toStack(long)` 或需要通过 `getChemical()` + `new ChemicalStack(chemical, amount)` 构造
-   - 如果 `getStack()` 查找失败，`toChemicalStackWithAmount()` 始终返回 null → inserter 返回 0
+6. **大型反质子核合成器物品只插 slot 0**
+   - 旧代码：`handler.insertItem(0, ...)`
+   - 实际情况：slot 0 是 gasInputSlot，真正的物品输入槽在后续槽位
+   - 修复：新增跨槽插入逻辑，模拟和执行都会按 handler 暴露的所有槽位依次尝试
 
-2. **端口位置计算可能不正确**
-   - 化学品输入端口的坐标或访问方向可能有误
-   - 电解分离器的流体输入端口正确，但其他机器的化学品端口未验证
+### 当前注意事项
+
+大型太阳能中子活化器本体仍然需要能看到天空才能真正处理配方。适配层只能解决输入/输出 capability 访问问题；如果机器在地下或顶部被方块遮挡，样板可以投料但机器不会加工。
 
 ## 调试方法
 
@@ -80,8 +98,12 @@
 ```
 src/main/java/com/moakiee/ae2lt/packaged/logic/multiblock/mekmm/
 ├── MekReflection.java          # Mekanism 反射工具（capability、状态检查）
+├── MekCapabilityReflection.java # 纯反射 helper（MultiTypeCapability、方法兼容）
 ├── AppmekReflection.java       # appmek MekanismKey ↔ ChemicalStack 转换
 ├── MekPortLayout.java          # 端口位置计算
+├── MekPortSpec.java            # 端口相对规格
+├── MekPortSpecs.java           # MekMM 机器端口规格
+├── MekItemInsertion.java       # 跨槽物品插入 helper
 ├── LargeNucleosynthesizerAdapter.java
 ├── LargeChemicalInfuserAdapter.java
 ├── LargeElectrolyticSeparatorAdapter.java
@@ -92,6 +114,8 @@ src/main/java/com/moakiee/ae2lt/packaged/logic/multiblock/mekmm/
 
 ## 下一步
 
-1. 启用 DEBUG 日志，确认 `AppmekReflection` 初始化是否成功（`getStack()` 是否存在）
-2. 如果 `getStack()` 不存在，需要找到 appmek 1.6.3 中 `MekanismKey` 创建 `ChemicalStack` 的正确方法
-3. 确认化学品输入端口位置是否正确（通过日志观察 `getChemicalHandler` 是否返回 null）
+1. 进游戏验证日志中是否不再出现 `Failed to resolve TileEntityMekanism: ... isActive()`
+2. 测试大型旋转冷凝器两种模式：Chemical → Fluid、Fluid → Chemical
+3. 测试大型太阳能中子活化器时保证顶部可见天空
+4. 测试大型反质子核合成器时确认物品材料和 Chemical 都能进入机器
+5. 如果仍失败，优先通过日志确认 `getChemicalHandler` 是返回 null（端口/方向问题）还是 `insertChemical`/`insertItem` 返回 0（配方/类型/容量问题）

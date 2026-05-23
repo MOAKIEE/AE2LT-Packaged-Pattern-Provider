@@ -210,7 +210,10 @@ final class MekReflection {
     private static void doLookup() {
         try {
             tileEntityMekanismClass = Class.forName("mekanism.common.tile.base.TileEntityMekanism");
-            isActiveMethod = tileEntityMekanismClass.getMethod("isActive");
+            isActiveMethod = MekCapabilityReflection.findZeroArgMethod(tileEntityMekanismClass, "getActive", "isActive");
+            if (isActiveMethod == null) {
+                LOG.warn("[ae2ltpp] Failed to resolve TileEntityMekanism active getter");
+            }
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOG.warn("[ae2ltpp] Failed to resolve TileEntityMekanism: {}", e.getMessage());
         }
@@ -225,8 +228,14 @@ final class MekReflection {
         try {
             Class<?> capabilitiesClass = Class.forName("mekanism.common.capabilities.Capabilities");
             Field chemicalField = capabilitiesClass.getField("CHEMICAL");
-            chemicalBlockCapability = chemicalField.get(null);
-            LOG.debug("[ae2ltpp] Resolved CHEMICAL capability: {}", chemicalBlockCapability);
+            Object chemicalCapability = chemicalField.get(null);
+            chemicalBlockCapability = resolveBlockCapability(chemicalCapability);
+            if (chemicalBlockCapability == null) {
+                LOG.warn("[ae2ltpp] Resolved Mekanism CHEMICAL field, but it did not expose a BlockCapability: {}",
+                        chemicalCapability == null ? "null" : chemicalCapability.getClass().getName());
+            } else {
+                LOG.debug("[ae2ltpp] Resolved CHEMICAL block capability: {}", chemicalBlockCapability);
+            }
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOG.warn("[ae2ltpp] Failed to resolve Mekanism CHEMICAL capability: {}", e.getMessage());
         }
@@ -254,5 +263,10 @@ final class MekReflection {
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOG.warn("[ae2ltpp] Failed to resolve chemical handler API: {}", e.getMessage());
         }
+    }
+
+    @Nullable
+    private static Object resolveBlockCapability(@Nullable Object capabilityCarrier) {
+        return MekCapabilityReflection.resolveBlock(capabilityCarrier, BlockCapability.class);
     }
 }
