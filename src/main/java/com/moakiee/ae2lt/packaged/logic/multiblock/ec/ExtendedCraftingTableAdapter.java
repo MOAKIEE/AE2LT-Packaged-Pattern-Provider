@@ -2,7 +2,7 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.ec;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -69,8 +69,14 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     private static final ResourceLocation ULTIMATE_TABLE_BLOCK = ecId("ultimate_table");
     private static final ResourceLocation RECIPE_TYPE_ID = ecId("table");
     private static final int MAX_INPUT_UNITS = 81;
+    private static final int MAX_STABLE_PLAN_CACHE_ENTRIES = 128;
+    private static final int MAX_TABLE_RECIPE_CACHE_ENTRIES = 512;
 
     private final ExtendedCraftingTablePlanCache<PlanCacheKey, PlanMatch> planCache = new ExtendedCraftingTablePlanCache<>();
+    private final ExtendedCraftingTableBoundedCache<PlanCacheKey, PlanMatch> stablePlanCache =
+            new ExtendedCraftingTableBoundedCache<>(MAX_STABLE_PLAN_CACHE_ENTRIES);
+    private final ExtendedCraftingTableBoundedCache<TableRecipeCacheKey, Object> tableRecipeCache =
+            new ExtendedCraftingTableBoundedCache<>(MAX_TABLE_RECIPE_CACHE_ENTRIES);
 
     @Override
     public int priority() {
@@ -133,7 +139,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
                     InsertionStrategy.CUSTOM,
                     tableSlotInserter(level, mainPos, spec, unit)));
         }
-        return new DispatchPlan(List.copyOf(targets), null);
+        return new DispatchPlan(List.copyOf(targets), () -> rememberTableRecipe(level, mainPos, spec, match.recipe()));
     }
 
     @Override
@@ -157,7 +163,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             return List.of();
         }
 
-        var recipe = findMatchingRecipe(level, input);
+        var recipe = findMatchingRecipeCached(level, mainPos, spec, input);
         if (recipe == null) {
             return List.of();
         }
@@ -178,6 +184,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
         }
 
         applyCraftRemainders(modifiable, spec.gridSize(), input, remaining);
+        rememberTableRecipe(level, mainPos, spec, recipe);
         return List.of(new GenericStack(AEItemKey.of(result), result.getCount()));
     }
 
@@ -189,7 +196,59 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
                 spec,
                 patternKey(pattern),
                 inputSignature(inputs));
-        return planCache.getOrCompute(level.getGameTime(), key, () -> findPlanMatch(level, pattern, inputs, spec));
+        return planCache.getOrCompute(level.getGameTime(), key,
+                () -> findStableOrComputePlanMatch(level, pattern, inputs, spec, key));
+    }
+
+    @Nullable
+    private PlanMatch findStableOrComputePlanMatch(ServerLevel level, IPatternDetails pattern,
+                                                   KeyCounter[] inputs, TableSpec spec, PlanCacheKey key) {
+        var cached = stablePlanCache.get(key);
+        if (cached != null && cachedPlanStillMatches(level, pattern, spec, cached)) {
+            return cached;
+        }
+        if (cached != null) {
+            stablePlanCache.remove(key);
+        }
+
+        var computed = findPlanMatch(level, pattern, inputs, spec);
+        if (computed != null) {
+            stablePlanCache.put(key, computed);
+        }
+        return computed;
+    }
+
+    private static boolean cachedPlanStillMatches(ServerLevel level, IPatternDetails pattern,
+                                                  TableSpec spec, PlanMatch match) {
+        var input = EcReflection.createTableInput(
+                spec.gridSize(), stacksForPlan(spec.slots(), match.units()), spec.tier());
+        if (input == null || !recipeMatches(match.recipe(), input, level)) {
+            return false;
+        }
+        var result = assemble(match.recipe(), input, level);
+        return result != null && !result.isEmpty() && outputMatches(pattern, result);
+    }
+
+    private void rememberTableRecipe(ServerLevel level, BlockPos pos, TableSpec spec, Object recipe) {
+        tableRecipeCache.put(new TableRecipeCacheKey(level.dimension(), pos.asLong(), spec), recipe);
+    }
+
+    @Nullable
+    private Object findMatchingRecipeCached(ServerLevel level, BlockPos pos, TableSpec spec, CraftingInput input) {
+        var key = new TableRecipeCacheKey(level.dimension(), pos.asLong(), spec);
+        var cached = tableRecipeCache.get(key);
+        if (cached != null && recipeMatches(cached, input, level)) {
+            return cached;
+        }
+        if (cached != null) {
+            tableRecipeCache.remove(key);
+        }
+
+        var recipe = findMatchingRecipe(level, input);
+        if (recipe != null) {
+            tableRecipeCache.put(key, recipe);
+        }
+        return recipe;
     }
 
     private static String patternKey(IPatternDetails pattern) {
@@ -199,18 +258,18 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
         return String.valueOf(pattern.getDefinition());
     }
 
-    private static List<String> inputSignature(KeyCounter[] inputs) {
-        var signature = new ArrayList<String>(inputs.length);
+    private static List<InputCounterSignature> inputSignature(KeyCounter[] inputs) {
+        var signature = new ArrayList<InputCounterSignature>(inputs.length);
         for (int i = 0; i < inputs.length; i++) {
-            var parts = new ArrayList<String>();
+            var parts = new ArrayList<InputAmount>();
             for (var entry : inputs[i]) {
                 long amount = entry.getLongValue();
                 if (amount > 0) {
-                    parts.add(entry.getKey() + "=" + amount);
+                    parts.add(new InputAmount(entry.getKey(), amount));
                 }
             }
-            Collections.sort(parts);
-            signature.add(i + ":" + String.join(",", parts));
+            parts.sort(Comparator.comparingInt(part -> part.key().hashCode()));
+            signature.add(new InputCounterSignature(List.copyOf(parts)));
         }
         return List.copyOf(signature);
     }
@@ -229,7 +288,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
                 return null;
             }
             var recipe = findMatchingRecipe(level, pattern, input);
-            return recipe == null ? null : new PlanMatch(slotted);
+            return recipe == null ? null : new PlanMatch(slotted, recipe);
         }
 
         var units = expandInputUnits(inputs);
@@ -250,7 +309,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             }
             var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), planned), spec.tier());
             if (input != null && recipeMatches(recipe, input, level)) {
-                return new PlanMatch(planned);
+                return new PlanMatch(planned, recipe);
             }
         }
         return null;
@@ -691,13 +750,24 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
         }
     }
 
-    private record PlanMatch(List<PlannedUnit> units) {
+    private record PlanMatch(List<PlannedUnit> units, Object recipe) {
     }
 
     private record PlanCacheKey(ResourceKey<Level> dimension,
                                 TableSpec spec,
                                 String patternKey,
-                                List<String> inputSignature) {
+                                List<InputCounterSignature> inputSignature) {
+    }
+
+    private record InputCounterSignature(List<InputAmount> entries) {
+    }
+
+    private record InputAmount(Object key, long amount) {
+    }
+
+    private record TableRecipeCacheKey(ResourceKey<Level> dimension,
+                                       long pos,
+                                       TableSpec spec) {
     }
 
     private static final class EcReflection {
