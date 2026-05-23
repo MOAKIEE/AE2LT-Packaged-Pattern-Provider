@@ -236,7 +236,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         }
 
         var key = AEItemKey.of(result);
-        if (!filter.matches(key)) {
+        if (!allowsAutoReturn(level, mainPos, filter, key)) {
             return List.of();
         }
 

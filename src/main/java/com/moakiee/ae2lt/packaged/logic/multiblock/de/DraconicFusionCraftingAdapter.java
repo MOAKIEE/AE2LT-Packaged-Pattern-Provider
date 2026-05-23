@@ -145,7 +145,7 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
         if (stack == null || stack.isEmpty()) return List.of();
 
         var key = AEItemKey.of(stack);
-        if (!filter.matches(key)) return List.of();
+        if (!allowsAutoReturn(level, mainPos, filter, key)) return List.of();
 
         var extracted = DEReflection.extractOutput(be);
         if (extracted.isEmpty()) return List.of();
