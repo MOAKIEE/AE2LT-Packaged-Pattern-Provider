@@ -5,6 +5,7 @@
   "block.ae2ltpp.wireless_packaged_pattern_provider": "无线封包样板供应器",
   "ae2ltpp.gui.title.packaged_pattern_provider": "封包样板供应器",
   "ae2ltpp.gui.title.wireless_packaged_pattern_provider": "无线封包样板供应器",
+  "ae2ltpp.gui.adapter_slot": "适配器卡片",
   "item.ae2ltpp.aa_reconstructor_adapter": "原子重构器适配器",
   "item.ae2ltpp.aa_empowerer_adapter": "充能器适配器",
   "item.ae2ltpp.ars_apparatus_adapter": "附魔仪适配器",

@@ -1,0 +1,11 @@
+{
+  "$schema": "schema.json",
+  "includes": ["overloaded_pattern_provider.json"],
+  "slots": {
+    "AE2LTPP_ADAPTER_CARD": {
+      "left": 178,
+      "top": 42,
+      "grid": "VERTICAL"
+    }
+  }
+}

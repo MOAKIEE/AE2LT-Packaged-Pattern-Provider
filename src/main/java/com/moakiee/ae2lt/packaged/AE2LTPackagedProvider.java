@@ -39,6 +39,7 @@ import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 import com.moakiee.ae2lt.packaged.registry.PPCreativeTabs;
 import com.moakiee.ae2lt.packaged.registry.PPItems;
+import com.moakiee.ae2lt.packaged.registry.PPMenuTypes;
 
 @Mod(AE2LTPackagedProvider.MODID)
 public class AE2LTPackagedProvider {
@@ -49,6 +50,7 @@ public class AE2LTPackagedProvider {
         PPItems.ITEMS.register(modEventBus);
         PPBlocks.BLOCKS.register(modEventBus);
         PPBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        PPMenuTypes.MENU_TYPES.register(modEventBus);
         PPCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
