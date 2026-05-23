@@ -27,6 +27,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.de.DraconicFusionCraftingAdap
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingTableAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.malum.MalumSpiritFocusingAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.malum.MalumSpiritInfusionAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeNucleosynthesizerAdapter;
@@ -66,6 +68,8 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
+            MultiblockAdapterRegistry.register(new MalumSpiritFocusingAdapter());
+            MultiblockAdapterRegistry.register(new MalumSpiritInfusionAdapter());
             MultiblockAdapterRegistry.register(new LargeNucleosynthesizerAdapter());
             MultiblockAdapterRegistry.register(new LargeChemicalInfuserAdapter());
             MultiblockAdapterRegistry.register(new LargeElectrolyticSeparatorAdapter());

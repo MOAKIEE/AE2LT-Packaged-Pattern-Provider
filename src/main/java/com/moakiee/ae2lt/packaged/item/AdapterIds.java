@@ -52,6 +52,10 @@ public final class AdapterIds {
             id("mysticalagriculture/awakening_adapter");
     public static final ResourceLocation MA_INFUSION =
             id("mysticalagriculture/infusion_adapter");
+    public static final ResourceLocation MALUM_SPIRIT_FOCUSING =
+            id("malum/spirit_focusing_adapter");
+    public static final ResourceLocation MALUM_SPIRIT_INFUSION =
+            id("malum/spirit_infusion_adapter");
     public static final ResourceLocation OCCULTISM_RITUAL =
             id("occultism/ritual_adapter");
     public static final ResourceLocation OCCULTISM_SPIRIT_FIRE =
