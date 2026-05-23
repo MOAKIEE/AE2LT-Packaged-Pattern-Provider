@@ -9,12 +9,10 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import appeng.api.AECapabilities;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.blockentity.AEBaseBlockEntity;
 
-import com.moakiee.ae2lt.AE2LightningTech;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.logic.InsertOnlyReturnInvWrapper;
 import com.moakiee.ae2lt.logic.OverloadedPatternProviderLogic;
@@ -30,6 +28,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
+import com.moakiee.ae2lt.packaged.registry.PPCreativeTabs;
 import com.moakiee.ae2lt.packaged.registry.PPItems;
 
 @Mod(AE2LTPackagedProvider.MODID)
@@ -41,10 +40,10 @@ public class AE2LTPackagedProvider {
         PPItems.ITEMS.register(modEventBus);
         PPBlocks.BLOCKS.register(modEventBus);
         PPBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        PPCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::registerCapabilities);
-        modEventBus.addListener(this::addCreative);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -108,11 +107,4 @@ public class AE2LTPackagedProvider {
                 (blockEntity, context) -> (IInWorldGridNodeHost) blockEntity);
     }
 
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        var mainTabId = AE2LightningTech.MAIN_TAB.getId();
-        if (event.getTabKey().location().equals(mainTabId)) {
-            event.accept(PPBlocks.PACKAGED_PATTERN_PROVIDER);
-            event.accept(PPBlocks.WIRELESS_PACKAGED_PATTERN_PROVIDER);
-        }
-    }
 }
