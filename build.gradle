@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'idea'
-    id 'net.neoforged.moddev' version '2.0.141'
+    id 'net.neoforged.moddev' version '2.0.140'
 }
 
 version = mod_version
@@ -10,6 +10,32 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    mavenCentral()
+    maven {
+        name = "CurseMaven"
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        url = "https://modmaven.dev/"
+        content {
+            includeGroup "de.mari_023"
+            includeGroup "dev.technici4n"
+            includeGroup "mekanism"
+        }
+    }
+    maven {
+        name = "Curios"
+        url = "https://maven.theillusivec4.top/"
+    }
+    maven {
+        url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/"
+    }
+    maven {
+        url = "https://maven.createmod.net"
+    }
 }
 
 base {
@@ -96,26 +122,24 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 
 dependencies {
-    // Example mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // compileOnly "mezz.jei:jei-${mc_version}-forge-api:${jei_version}"
-    // runtimeOnly "mezz.jei:jei-${mc_version}-forge:${jei_version}"
+    implementation "curse.maven:applied-energistics-2-223794:7027323"
+    implementation "de.mari_023:ae2wtlib_api:${ae2wtlib_version}"
+    compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
 
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
+    def ae2ltMavenNotation = providers.gradleProperty("ae2lt_maven_notation").orNull
+    if (ae2ltMavenNotation != null && !ae2ltMavenNotation.isBlank()) {
+        implementation ae2ltMavenNotation
+    } else {
+        implementation files(ae2lt_local_jar)
+    }
 
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
-
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}"
+    runtimeOnly("de.mari_023:ae2wtlib:${ae2wtlib_version}") {
+        transitive = false
+    }
+    runtimeOnly "org.appliedenergistics:guideme:${guideme_version}"
+    runtimeOnly "curse.maven:jei-238222:7391682"
+    runtimeOnly "curse.maven:jade-324717:5427817"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -130,6 +154,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
                              mod_name               : mod_name,
                              mod_license            : mod_license,
                              mod_version            : mod_version,
+                             ae2lt_version_range    : ae2lt_version_range,
                              mod_authors            : mod_authors,
                              mod_description        : mod_description]
     inputs.properties replaceProperties

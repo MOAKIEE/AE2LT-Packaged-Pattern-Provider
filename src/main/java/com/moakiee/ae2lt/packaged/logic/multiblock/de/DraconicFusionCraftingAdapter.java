@@ -1,0 +1,651 @@
+package com.moakiee.ae2lt.packaged.logic.multiblock.de;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.BiFunction;
+
+import org.jetbrains.annotations.Nullable;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.fml.ModList;
+
+import appeng.api.config.Actionable;
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+
+import com.moakiee.ae2lt.logic.AllowedOutputFilter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
+import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
+import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.overload.model.MatchMode;
+import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
+
+/**
+ * Runtime adapter for Draconic Evolution's Fusion Crafting multiblock.
+ * Pure reflection — DE is not a compile dependency.
+ */
+public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
+
+    private static final String MOD_ID = "draconicevolution";
+    private static final ResourceLocation CRAFTING_CORE_BLOCK = deId("crafting_core");
+    private static final int MAX_INPUT_UNITS = 128;
+
+    @Override
+    public int priority() {
+        return 100;
+    }
+
+    @Override
+    public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
+        return isDeLoaded() && blockId(be.getBlockState()).equals(CRAFTING_CORE_BLOCK);
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
+                             IPatternDetails pattern, KeyCounter[] inputs,
+                             IActionSource source) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) return null;
+        if (DEReflection.isCrafting(be)) return null;
+
+        // Core output slot must be empty or stackable with expected result
+        var outputStack = DEReflection.getOutputStack(be);
+        if (outputStack == null) return null;
+
+        var units = expandInputUnits(inputs);
+        if (units == null || units.isEmpty()) return null;
+
+        var injectors = DEReflection.getInjectors(be, level);
+        if (injectors == null) return null;
+
+        var match = findRecipeMatch(level, be, pattern, units, injectors);
+        if (match == null) return null;
+
+        // Verify output slot can accept the result
+        if (!outputStack.isEmpty()) {
+            if (!ItemStack.isSameItemSameComponents(outputStack, match.result())
+                    || outputStack.getCount() + match.result().getCount() > match.result().getMaxStackSize()) {
+                return null;
+            }
+        }
+
+        // Build dispatch targets
+        var targets = new ArrayList<TargetSlot>(match.injectorAssignments().size() + 1);
+
+        // Catalyst → core slot 0
+        targets.add(new TargetSlot(
+                level, mainPos, null,
+                List.of(match.catalyst().toGenericStack()),
+                InsertionStrategy.CUSTOM,
+                coreInserter(level, mainPos, match.catalyst())));
+
+        // Ingredients → injectors
+        for (var assignment : match.injectorAssignments()) {
+            targets.add(new TargetSlot(
+                    level, assignment.injectorPos(), null,
+                    List.of(assignment.unit().toGenericStack()),
+                    InsertionStrategy.CUSTOM,
+                    injectorInserter(level, assignment.injectorPos(), assignment.unit())));
+        }
+
+        return new DispatchPlan(List.copyOf(targets), () -> DEReflection.startCraft(be));
+    }
+
+    @Override
+    public List<GenericStack> extractOutputs(ServerLevel level, BlockPos mainPos,
+                                             AllowedOutputFilter filter,
+                                             IActionSource source) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) return List.of();
+        if (DEReflection.isCrafting(be)) return List.of();
+
+        var stack = DEReflection.getOutputStack(be);
+        if (stack == null || stack.isEmpty()) return List.of();
+
+        var key = AEItemKey.of(stack);
+        if (!filter.matches(key)) return List.of();
+
+        var extracted = DEReflection.extractOutput(be);
+        if (extracted.isEmpty()) return List.of();
+
+        return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
+    }
+
+    // ===== Recipe matching =====
+
+    @Nullable
+    private RecipeMatch findRecipeMatch(ServerLevel level, BlockEntity core,
+                                        IPatternDetails pattern,
+                                        List<PlannedUnit> units,
+                                        List<InjectorInfo> injectors) {
+        if (!hasSingleItemOutput(pattern)) return null;
+
+        var recipes = DEReflection.getFusionRecipes(level);
+        if (recipes == null) return null;
+
+        for (var holder : recipes) {
+            var recipe = holder.value();
+            var catalyst = DEReflection.getCatalyst(recipe);
+            var fusionIngredients = DEReflection.getFusionIngredients(recipe);
+            var recipeTierIndex = DEReflection.getRecipeTierIndex(recipe);
+            var resultItem = DEReflection.getResultItem(recipe, level);
+            if (catalyst == null || fusionIngredients == null
+                    || recipeTierIndex < 0 || resultItem == null || resultItem.isEmpty()) {
+                continue;
+            }
+
+            if (!outputMatches(pattern, resultItem)) continue;
+
+            int catalystCount = DEReflection.getCatalystCount(recipe);
+            if (catalystCount <= 0) catalystCount = 1;
+
+            // Try to find catalyst units from the expanded inputs
+            var catalystUnits = new ArrayList<PlannedUnit>();
+            var ingredientUnits = new ArrayList<PlannedUnit>();
+            for (var unit : units) {
+                if (catalystUnits.size() < catalystCount && catalyst.test(unit.stack())) {
+                    catalystUnits.add(unit);
+                } else {
+                    ingredientUnits.add(unit);
+                }
+            }
+            if (catalystUnits.size() != catalystCount) continue;
+            if (ingredientUnits.size() != fusionIngredients.size()) continue;
+
+            // Match ingredient units to recipe ingredients
+            var assignments = matchIngredients(
+                    fusionIngredients, ingredientUnits, injectors, recipeTierIndex);
+            if (assignments == null) continue;
+
+            // Build catalyst as a single stack with correct count
+            var catalystKey = catalystUnits.getFirst().key();
+            var catalystPlanned = new PlannedUnit(catalystKey, catalystCount);
+
+            return new RecipeMatch(catalystPlanned, assignments, resultItem);
+        }
+        return null;
+    }
+
+    @Nullable
+    private List<InjectorAssignment> matchIngredients(
+            List<IngredientInfo> fusionIngredients,
+            List<PlannedUnit> ingredientUnits,
+            List<InjectorInfo> injectors,
+            int recipeTierIndex) {
+        // Filter injectors: must be empty and meet tier requirement
+        var available = new ArrayList<InjectorInfo>();
+        for (var inj : injectors) {
+            if (inj.empty() && inj.tierIndex() >= recipeTierIndex) {
+                available.add(inj);
+            }
+        }
+        if (available.size() < fusionIngredients.size()) return null;
+
+        // Greedy match: for each recipe ingredient, find a matching unit
+        var usedUnits = new boolean[ingredientUnits.size()];
+        var assignments = new ArrayList<InjectorAssignment>(fusionIngredients.size());
+
+        for (int i = 0; i < fusionIngredients.size(); i++) {
+            var fi = fusionIngredients.get(i);
+            boolean matched = false;
+            for (int u = 0; u < ingredientUnits.size(); u++) {
+                if (usedUnits[u]) continue;
+                if (fi.ingredient().test(ingredientUnits.get(u).stack())) {
+                    usedUnits[u] = true;
+                    assignments.add(new InjectorAssignment(available.get(i).pos(), ingredientUnits.get(u)));
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) return null;
+        }
+        return assignments;
+    }
+
+    // ===== Inserters =====
+
+    private static BiFunction<GenericStack, Actionable, Long> coreInserter(
+            ServerLevel level, BlockPos pos, PlannedUnit unit) {
+        return (stack, mode) -> {
+            if (stack.amount() != unit.amount() || !unit.key().equals(stack.what())) return 0L;
+            var be = level.getBlockEntity(pos);
+            if (be == null || !blockId(be.getBlockState()).equals(CRAFTING_CORE_BLOCK)) return 0L;
+            if (DEReflection.isCrafting(be)) return 0L;
+            var current = DEReflection.getCatalystStack(be);
+            if (current == null || !current.isEmpty()) return 0L;
+            if (mode == Actionable.MODULATE) {
+                DEReflection.setCatalystStack(be, unit.stack());
+            }
+            return (long) unit.amount();
+        };
+    }
+
+    private static BiFunction<GenericStack, Actionable, Long> injectorInserter(
+            ServerLevel level, BlockPos pos, PlannedUnit unit) {
+        return (stack, mode) -> {
+            if (stack.amount() != 1 || !unit.key().equals(stack.what())) return 0L;
+            var be = level.getBlockEntity(pos);
+            if (be == null) return 0L;
+            var injStack = DEReflection.getInjectorStack(be);
+            if (injStack == null || !injStack.isEmpty()) return 0L;
+            if (mode == Actionable.MODULATE) {
+                DEReflection.setInjectorStack(be, unit.stack());
+            }
+            return 1L;
+        };
+    }
+
+    // ===== Helpers =====
+
+    @Nullable
+    private static List<PlannedUnit> expandInputUnits(KeyCounter[] inputs) {
+        var units = new ArrayList<PlannedUnit>();
+        long total = 0;
+        for (var counter : inputs) {
+            for (var entry : counter) {
+                if (!(entry.getKey() instanceof AEItemKey itemKey)) return null;
+                long amount = entry.getLongValue();
+                if (amount <= 0) continue;
+                total += amount;
+                if (total > MAX_INPUT_UNITS) return null;
+                for (long i = 0; i < amount; i++) {
+                    units.add(new PlannedUnit(itemKey, 1));
+                }
+            }
+        }
+        return units;
+    }
+
+    private static boolean hasSingleItemOutput(IPatternDetails pattern) {
+        var outputs = pattern.getOutputs();
+        return outputs.size() == 1 && outputs.getFirst().what() instanceof AEItemKey;
+    }
+
+    private static boolean outputMatches(IPatternDetails pattern, ItemStack result) {
+        var outputs = pattern.getOutputs();
+        if (outputs.size() != 1) return false;
+        var expected = outputs.getFirst();
+        if (!(expected.what() instanceof AEItemKey expectedKey) || expected.amount() != result.getCount()) {
+            return false;
+        }
+        var actual = AEItemKey.of(result);
+        return outputMode(pattern, 0) == MatchMode.ID_ONLY
+                ? expectedKey.dropSecondary().equals(actual.dropSecondary())
+                : expectedKey.equals(actual);
+    }
+
+    private static MatchMode outputMode(IPatternDetails pattern, int outputIndex) {
+        if (pattern instanceof OverloadedProviderOnlyPatternDetails overload) {
+            var outputs = overload.overloadPatternDetailsView().outputs();
+            if (outputIndex >= 0 && outputIndex < outputs.size()) {
+                return outputs.get(outputIndex).matchMode();
+            }
+        }
+        return MatchMode.STRICT;
+    }
+
+    private static boolean isDeLoaded() {
+        return ModList.get().isLoaded(MOD_ID);
+    }
+
+    private static ResourceLocation blockId(BlockState state) {
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock());
+    }
+
+    private static ResourceLocation deId(String path) {
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    }
+
+    // ===== Records =====
+
+    private record PlannedUnit(AEItemKey key, int amount) {
+        PlannedUnit {
+            Objects.requireNonNull(key, "key");
+        }
+
+        ItemStack stack() {
+            return key.toStack(amount);
+        }
+
+        GenericStack toGenericStack() {
+            return new GenericStack(key, amount);
+        }
+    }
+
+    private record InjectorInfo(BlockPos pos, int tierIndex, boolean empty) {}
+
+    private record InjectorAssignment(BlockPos injectorPos, PlannedUnit unit) {}
+
+    private record IngredientInfo(Ingredient ingredient, boolean consume) {}
+
+    private record RecipeMatch(PlannedUnit catalyst, List<InjectorAssignment> injectorAssignments, ItemStack result) {}
+
+    // ===== DEReflection =====
+
+    private static final class DEReflection {
+        private static final String CORE_CLASS =
+                "com.brandon3055.draconicevolution.blocks.tileentity.TileFusionCraftingCore";
+        private static final String INJECTOR_CLASS =
+                "com.brandon3055.draconicevolution.blocks.tileentity.TileFusionCraftingInjector";
+        private static final String FUSION_RECIPE_CLASS =
+                "com.brandon3055.draconicevolution.api.crafting.IFusionRecipe";
+        private static final String FUSION_INGREDIENT_CLASS =
+                "com.brandon3055.draconicevolution.api.crafting.IFusionRecipe$IFusionIngredient";
+        private static final String STACK_INGREDIENT_CLASS =
+                "com.brandon3055.draconicevolution.api.crafting.StackIngredient";
+        private static final String DRACONIC_API_CLASS =
+                "com.brandon3055.draconicevolution.api.DraconicAPI";
+        private static final String TECH_LEVEL_CLASS =
+                "com.brandon3055.brandonscore.api.TechLevel";
+
+        private static volatile boolean lookupDone;
+        private static volatile @Nullable Method isCraftingMethod;
+        private static volatile @Nullable Method startCraftMethod;
+        private static volatile @Nullable Method getInjectorsMethod;
+        private static volatile @Nullable Method getInjectorStackMethod;
+        private static volatile @Nullable Method setInjectorStackMethod;
+        private static volatile @Nullable Method getInjectorTierMethod;
+        private static volatile @Nullable Method getCatalystStackMethod;
+        private static volatile @Nullable Method setCatalystStackMethod;
+        private static volatile @Nullable Method getOutputStackMethod;
+        private static volatile @Nullable Method setOutputStackMethod;
+        private static volatile @Nullable Method fusionIngredientsMethod;
+        private static volatile @Nullable Method getCatalystMethod;
+        private static volatile @Nullable Method getRecipeTierMethod;
+        private static volatile @Nullable Method getResultItemMethod;
+        private static volatile @Nullable Method ingredientGetMethod;
+        private static volatile @Nullable Method ingredientConsumeMethod;
+        private static volatile @Nullable Field techLevelIndexField;
+        private static volatile @Nullable Method getCustomIngredientMethod;
+        private static volatile @Nullable Method stackIngredientCountMethod;
+        private static volatile @Nullable Object fusionRecipeType;
+
+        static boolean isCrafting(BlockEntity be) {
+            ensureLookup();
+            if (isCraftingMethod == null) return true;
+            try {
+                return Boolean.TRUE.equals(isCraftingMethod.invoke(be));
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return true;
+            }
+        }
+
+        static void startCraft(BlockEntity be) {
+            ensureLookup();
+            if (startCraftMethod == null) return;
+            try {
+                startCraftMethod.invoke(be);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+        }
+
+        @Nullable
+        static ItemStack getCatalystStack(BlockEntity be) {
+            ensureLookup();
+            if (getCatalystStackMethod == null) return null;
+            try {
+                var result = getCatalystStackMethod.invoke(be);
+                return result instanceof ItemStack s ? s : null;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        static void setCatalystStack(BlockEntity be, ItemStack stack) {
+            ensureLookup();
+            if (setCatalystStackMethod == null) return;
+            try {
+                setCatalystStackMethod.invoke(be, stack);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+        }
+
+        @Nullable
+        static ItemStack getOutputStack(BlockEntity be) {
+            ensureLookup();
+            if (getOutputStackMethod == null) return null;
+            try {
+                var result = getOutputStackMethod.invoke(be);
+                return result instanceof ItemStack s ? s : null;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        static ItemStack extractOutput(BlockEntity be) {
+            ensureLookup();
+            if (getOutputStackMethod == null || setOutputStackMethod == null) return ItemStack.EMPTY;
+            try {
+                var result = getOutputStackMethod.invoke(be);
+                if (!(result instanceof ItemStack stack) || stack.isEmpty()) return ItemStack.EMPTY;
+                var copy = stack.copy();
+                setOutputStackMethod.invoke(be, ItemStack.EMPTY);
+                return copy;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return ItemStack.EMPTY;
+            }
+        }
+
+
+        @Nullable
+        static ItemStack getInjectorStack(BlockEntity be) {
+            ensureLookup();
+            if (getInjectorStackMethod == null) return null;
+            try {
+                var result = getInjectorStackMethod.invoke(be);
+                return result instanceof ItemStack s ? s : null;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        static void setInjectorStack(BlockEntity be, ItemStack stack) {
+            ensureLookup();
+            if (setInjectorStackMethod == null) return;
+            try {
+                setInjectorStackMethod.invoke(be, stack);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+        }
+
+        @Nullable
+        @SuppressWarnings("unchecked")
+        static List<InjectorInfo> getInjectors(BlockEntity core, ServerLevel level) {
+            ensureLookup();
+            if (getInjectorsMethod == null) return null;
+            try {
+                var raw = getInjectorsMethod.invoke(core);
+                if (!(raw instanceof List<?> list)) return null;
+                var result = new ArrayList<InjectorInfo>(list.size());
+                for (var obj : list) {
+                    if (obj instanceof BlockEntity injBe) {
+                        var stack = getInjectorStack(injBe);
+                        int tier = getInjectorTierIndex(injBe);
+                        if (stack != null && tier >= 0) {
+                            result.add(new InjectorInfo(injBe.getBlockPos(), tier, stack.isEmpty()));
+                        }
+                    }
+                }
+                return result;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        private static int getInjectorTierIndex(BlockEntity injBe) {
+            ensureLookup();
+            if (getInjectorTierMethod == null || techLevelIndexField == null) return -1;
+            try {
+                var tier = getInjectorTierMethod.invoke(injBe);
+                if (tier == null) return -1;
+                return techLevelIndexField.getInt(tier);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return -1;
+            }
+        }
+
+
+        @Nullable
+        @SuppressWarnings("unchecked")
+        static List<RecipeHolder<?>> getFusionRecipes(ServerLevel level) {
+            ensureLookup();
+            if (fusionRecipeType == null) return null;
+            try {
+                var allRecipes = level.getRecipeManager()
+                        .getAllRecipesFor((RecipeType) fusionRecipeType);
+                return (List<RecipeHolder<?>>) (List<?>) allRecipes;
+            } catch (RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        @Nullable
+        static Ingredient getCatalyst(Object recipe) {
+            ensureLookup();
+            if (getCatalystMethod == null) return null;
+            try {
+                var result = getCatalystMethod.invoke(recipe);
+                return result instanceof Ingredient ing ? ing : null;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        @Nullable
+        static List<IngredientInfo> getFusionIngredients(Object recipe) {
+            ensureLookup();
+            if (fusionIngredientsMethod == null || ingredientGetMethod == null
+                    || ingredientConsumeMethod == null) return null;
+            try {
+                var raw = fusionIngredientsMethod.invoke(recipe);
+                if (!(raw instanceof List<?> list)) return null;
+                var result = new ArrayList<IngredientInfo>(list.size());
+                for (var obj : list) {
+                    var ing = ingredientGetMethod.invoke(obj);
+                    var consume = ingredientConsumeMethod.invoke(obj);
+                    if (ing instanceof Ingredient ingredient && consume instanceof Boolean b) {
+                        result.add(new IngredientInfo(ingredient, b));
+                    }
+                }
+                return result;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        static int getRecipeTierIndex(Object recipe) {
+            ensureLookup();
+            if (getRecipeTierMethod == null || techLevelIndexField == null) return -1;
+            try {
+                var tier = getRecipeTierMethod.invoke(recipe);
+                if (tier == null) return -1;
+                return techLevelIndexField.getInt(tier);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return -1;
+            }
+        }
+
+
+        @Nullable
+        static ItemStack getResultItem(Object recipe, ServerLevel level) {
+            ensureLookup();
+            if (getResultItemMethod == null) return null;
+            try {
+                var result = getResultItemMethod.invoke(recipe, level.registryAccess());
+                return result instanceof ItemStack s ? s.copy() : null;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+
+        static int getCatalystCount(Object recipe) {
+            ensureLookup();
+            if (getCatalystMethod == null) return 1;
+            try {
+                var catalyst = getCatalystMethod.invoke(recipe);
+                if (!(catalyst instanceof Ingredient ing)) return 1;
+                if (getCustomIngredientMethod == null) return 1;
+                var custom = getCustomIngredientMethod.invoke(ing);
+                if (custom == null) return 1;
+                var stackIngClass = Class.forName(STACK_INGREDIENT_CLASS);
+                if (!stackIngClass.isInstance(custom)) return 1;
+                if (stackIngredientCountMethod == null) {
+                    stackIngredientCountMethod = stackIngClass.getMethod("getCount");
+                }
+                var count = stackIngredientCountMethod.invoke(custom);
+                return count instanceof Number n ? n.intValue() : 1;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                return 1;
+            }
+        }
+
+        private static void ensureLookup() {
+            if (lookupDone) return;
+            synchronized (DEReflection.class) {
+                if (lookupDone) return;
+                try {
+                    doLookup();
+                } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                } finally {
+                    lookupDone = true;
+                }
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        private static void doLookup() throws ReflectiveOperationException {
+            var coreClass = Class.forName(CORE_CLASS);
+            isCraftingMethod = coreClass.getMethod("isCrafting");
+            startCraftMethod = coreClass.getMethod("startCraft");
+            getCatalystStackMethod = coreClass.getMethod("getCatalystStack");
+            setCatalystStackMethod = coreClass.getMethod("setCatalystStack", ItemStack.class);
+            getOutputStackMethod = coreClass.getMethod("getOutputStack");
+            setOutputStackMethod = coreClass.getMethod("setOutputStack", ItemStack.class);
+            getInjectorsMethod = coreClass.getMethod("getInjectors");
+
+            var injectorClass = Class.forName(INJECTOR_CLASS);
+            getInjectorStackMethod = injectorClass.getMethod("getInjectorStack");
+            setInjectorStackMethod = injectorClass.getMethod("setInjectorStack", ItemStack.class);
+            getInjectorTierMethod = injectorClass.getMethod("getInjectorTier");
+
+            var techLevelClass = Class.forName(TECH_LEVEL_CLASS);
+            techLevelIndexField = techLevelClass.getField("index");
+
+            var recipeClass = Class.forName(FUSION_RECIPE_CLASS);
+            fusionIngredientsMethod = recipeClass.getMethod("fusionIngredients");
+            getCatalystMethod = recipeClass.getMethod("getCatalyst");
+            getRecipeTierMethod = recipeClass.getMethod("getRecipeTier");
+            getResultItemMethod = recipeClass.getMethod("getResultItem",
+                    net.minecraft.core.HolderLookup.Provider.class);
+
+            var ingredientClass = Class.forName(FUSION_INGREDIENT_CLASS);
+            ingredientGetMethod = ingredientClass.getMethod("get");
+            ingredientConsumeMethod = ingredientClass.getMethod("consume");
+
+            getCustomIngredientMethod = Ingredient.class.getMethod("getCustomIngredient");
+
+            // Resolve fusion recipe type from DraconicAPI
+            var apiClass = Class.forName(DRACONIC_API_CLASS);
+            var typeField = apiClass.getField("FUSION_RECIPE_TYPE");
+            var holder = typeField.get(null);
+            if (holder != null) {
+                var getMethod = holder.getClass().getMethod("get");
+                fusionRecipeType = getMethod.invoke(holder);
+            }
+        }
+    }
+}

@@ -1,5 +1,6 @@
 {
-  "itemGroup.ae2ltpp": "Example Mod Tab",
-  "block.ae2ltpp.example_block": "Example Block",
-  "item.ae2ltpp.example_item": "Example Item"
+  "block.ae2ltpp.packaged_pattern_provider": "Packaged Pattern Provider",
+  "block.ae2ltpp.wireless_packaged_pattern_provider": "Wireless Packaged Pattern Provider",
+  "ae2ltpp.gui.title.packaged_pattern_provider": "Packaged Provider",
+  "ae2ltpp.gui.title.wireless_packaged_pattern_provider": "W. Packaged Provider"
 }
