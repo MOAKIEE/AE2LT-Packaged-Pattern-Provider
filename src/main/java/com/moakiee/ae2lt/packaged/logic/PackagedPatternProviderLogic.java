@@ -1,11 +1,14 @@
 package com.moakiee.ae2lt.packaged.logic;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -40,6 +43,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingResult;
 import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
 
 public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic {
+    private static final Logger LOG = LoggerFactory.getLogger(PackagedPatternProviderLogic.class);
 
     private static final int BACKOFF_MIN = 5;
     private static final int BACKOFF_MAX = 40;
@@ -47,6 +51,9 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     private static final int FAILURE_BACKOFF_TICKS = 20;
     private static final int RETURN_SPREAD_TICKS = 20;
     private static final int VIRTUAL_CRAFTS_PER_TABLE_PER_TICK = 4;
+    private static final String NORMAL_NO_TARGET_REASON = "No adjacent multiblock target accepted this pattern.";
+    private static final String WIRELESS_NO_CONNECTION_REASON = "No valid wireless connections were available.";
+    private static final String WIRELESS_NO_TARGET_REASON = "No wireless multiblock target accepted this pattern.";
 
     private final NeighborMainBlockIndex neighborIndex;
     private final EnumMap<Direction, Integer> faceFailures = new EnumMap<>(Direction.class);
@@ -116,24 +123,26 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         if (dispatch.success()) {
             PowerCostUtil.consumeRaw(grid, cost);
             syncPendingUnlockRule(patternDetails);
-            insertOutputsToReturnInv(dispatch.virtualOutputs());
+            insertOutputsToReturnInv(dispatch.value() == null ? List.of() : dispatch.value());
             resetExtractPollTimers();
             alertGridTick();
             ((PatternProviderLogicAccessor) this).invokeOnPushPatternSuccess(patternDetails);
+        } else if (dispatch.reason() != null) {
+            LOG.debug("Packaged dispatch failed for pattern {}: {}", patternDetails, dispatch.reason());
         }
         return dispatch.success();
     }
 
-    private PatternDispatchResult dispatchNormal(ServerLevel level, IPatternDetails pattern, KeyCounter[] inputs) {
+    private DispatchResult<List<GenericStack>> dispatchNormal(ServerLevel level, IPatternDetails pattern, KeyCounter[] inputs) {
         long gameTick = level.getGameTime();
-        for (var face : neighborIndex.adapterFaces(level)) {
+        return DispatchCycle.tryCandidates(neighborIndex.adapterFaces(level), face -> {
             if (gameTick < faceBackoffUntil.getOrDefault(face, 0L)) {
-                continue;
+                return DispatchResult.skipped("Face " + face + " is cooling down after recent failures.");
             }
 
             var adapter = neighborIndex.getAdapter(face);
             if (adapter == null) {
-                continue;
+                return DispatchResult.skipped("Face " + face + " no longer has a registered adapter.");
             }
 
             var mainPos = getOverloadedHost().getBlockPos().relative(face);
@@ -141,54 +150,61 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
                     faceVirtualLimiter, face, gameTick);
             if (virtual != null) {
                 faceFailures.remove(face);
-                return PatternDispatchResult.virtual(virtual.outputs());
+                return DispatchResult.success(virtual.outputs());
             }
             if (adapter instanceof VirtualCraftingAdapter) {
-                continue;
+                return DispatchResult.skipped("Virtual crafting adapter on face " + face + " could not accept the pattern.");
             }
 
             var plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
             if (plan == null) {
-                continue;
+                return DispatchResult.skipped("Adapter on face " + face + " could not produce a dispatch plan.");
             }
 
-            if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
+            var execution = DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv());
+            if (execution.success()) {
                 faceFailures.remove(face);
-                return PatternDispatchResult.realSuccess();
+                return DispatchResult.success(List.of());
             }
 
             bumpFaceFailure(face, gameTick);
-            return PatternDispatchResult.failure();
-        }
-        return PatternDispatchResult.failure();
+            return DispatchResult.failure("Face " + face + " failed dispatch: " + execution.reason());
+        }, NORMAL_NO_TARGET_REASON);
     }
 
-    private PatternDispatchResult dispatchWireless(ServerLevel providerLevel, IPatternDetails pattern, KeyCounter[] inputs) {
+    private DispatchResult<List<GenericStack>> dispatchWireless(ServerLevel providerLevel, IPatternDetails pattern, KeyCounter[] inputs) {
         long gameTick = providerLevel.getGameTime();
         var valid = getValidConnections(providerLevel, gameTick);
         if (valid.isEmpty()) {
-            return PatternDispatchResult.failure();
+            return DispatchResult.failure(WIRELESS_NO_CONNECTION_REASON);
         }
 
         int total = valid.size();
+        record OrderedConnection(int index, WirelessConnection connection) {
+        }
+        var ordered = new ArrayList<OrderedConnection>(total);
         for (int i = 0; i < total; i++) {
             int connIndex = Math.floorMod(packagedRoundRobin + i, total);
-            var conn = valid.get(connIndex);
+            ordered.add(new OrderedConnection(connIndex, valid.get(connIndex)));
+        }
+        return DispatchCycle.tryCandidates(ordered, candidate -> {
+            int connIndex = candidate.index();
+            var conn = candidate.connection();
             if (gameTick < connBackoffUntil.getOrDefault(conn, 0L)) {
-                continue;
+                return DispatchResult.skipped("Wireless target " + conn + " is cooling down after recent failures.");
             }
 
             var targetLevel = providerLevel.getServer().getLevel(conn.dimension());
             if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
-                continue;
+                return DispatchResult.skipped("Wireless target " + conn + " is not loaded.");
             }
             var be = targetLevel.getBlockEntity(conn.pos());
             if (be == null) {
-                continue;
+                return DispatchResult.skipped("Wireless target " + conn + " has no block entity.");
             }
             var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
             if (adapter == null) {
-                continue;
+                return DispatchResult.skipped("Wireless target " + conn + " has no registered adapter.");
             }
 
             var virtual = tryVirtualCraft(targetLevel, conn.pos(), adapter, pattern, inputs,
@@ -196,28 +212,27 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             if (virtual != null) {
                 connFailures.remove(conn);
                 packagedRoundRobin = (connIndex + 1) % total;
-                return PatternDispatchResult.virtual(virtual.outputs());
+                return DispatchResult.success(virtual.outputs());
             }
             if (adapter instanceof VirtualCraftingAdapter) {
-                continue;
+                return DispatchResult.skipped("Virtual wireless adapter " + conn + " could not accept the pattern.");
             }
 
             var plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
             if (plan == null) {
-                bumpConnFailure(conn, gameTick);
-                continue;
+                return DispatchResult.skipped("Wireless target " + conn + " could not produce a dispatch plan.");
             }
 
-            if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
+            var execution = DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv());
+            if (execution.success()) {
                 connFailures.remove(conn);
                 packagedRoundRobin = (connIndex + 1) % total;
-                return PatternDispatchResult.realSuccess();
+                return DispatchResult.success(List.of());
             }
 
             bumpConnFailure(conn, gameTick);
-            return PatternDispatchResult.failure();
-        }
-        return PatternDispatchResult.failure();
+            return DispatchResult.failure("Wireless target " + conn + " failed dispatch: " + execution.reason());
+        }, WIRELESS_NO_TARGET_REASON);
     }
 
     @Nullable
@@ -388,20 +403,6 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         connReturnBackoff.keySet().retainAll(active);
         connNextReturnPoll.keySet().retainAll(active);
         connVirtualLimiter.retainAll(active);
-    }
-
-    private record PatternDispatchResult(boolean success, List<GenericStack> virtualOutputs) {
-        static PatternDispatchResult failure() {
-            return new PatternDispatchResult(false, List.of());
-        }
-
-        static PatternDispatchResult realSuccess() {
-            return new PatternDispatchResult(true, List.of());
-        }
-
-        static PatternDispatchResult virtual(List<GenericStack> outputs) {
-            return new PatternDispatchResult(true, outputs);
-        }
     }
 
     private static boolean isPackagedPatternStack(ItemStack stack) {
