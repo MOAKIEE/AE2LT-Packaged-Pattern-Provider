@@ -22,6 +22,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
 import com.moakiee.ae2lt.logic.AllowedOutputFilter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 class MultiblockAdapterRegistryTest {
 
@@ -196,8 +197,19 @@ class MultiblockAdapterRegistryTest {
         }
 
         @Override
-        public DispatchPlan plan(ServerLevel level, BlockPos mainPos, IPatternDetails pattern, KeyCounter[] inputs,
-                                 IActionSource source) {
+        public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
+            return null;
+        }
+
+        @Override
+        public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+            return false;
+        }
+
+        @Override
+        public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                            IPatternDetails pattern, KeyCounter[] inputs,
+                                            Object handle, IActionSource source) {
             return null;
         }
 

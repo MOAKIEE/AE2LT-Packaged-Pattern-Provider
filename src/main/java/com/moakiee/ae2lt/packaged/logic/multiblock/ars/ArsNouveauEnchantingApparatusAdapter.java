@@ -39,6 +39,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
@@ -74,21 +76,53 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isArsLoaded() && blockId(be.getBlockState()).equals(APPARATUS_BLOCK) && be instanceof Container;
+        return be != null
+                && isArsLoaded()
+                && blockId(be.getBlockState()).equals(APPARATUS_BLOCK)
+                && be instanceof Container;
+    }
+
+    @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.ARS_APPARATUS;
     }
 
     @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be) || !(be instanceof Container)) {
+            return null;
+        }
+        if (!hasSingleItemOutput(pattern)) {
+            return null;
+        }
+        var found = findCandidateRecipe(level, pattern);
+        if (found == null) {
+            return null;
+        }
+        return new BindingResult(found, BindingMode.REAL);
+    }
+
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (!(handle instanceof ApparatusBindHandle bind)) return false;
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be) || !(be instanceof Container apparatus)) {
-            return null;
+            return false;
         }
         if (isCrafting(be) || !containerEmpty(apparatus) || !hasValidArcaneCore(level, mainPos)) {
-            return null;
+            return false;
         }
+        return hasSourceAvailable(level, mainPos, bind.sourceCost());
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (!(handle instanceof ApparatusBindHandle bind)) return null;
 
         var pedestals = findEmptyPedestals(level, mainPos);
         if (pedestals == null) {
@@ -100,7 +134,7 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
             return null;
         }
 
-        var match = findRecipeMatch(level, mainPos, pattern, units);
+        var match = assignInputsToRecipe(level, bind.recipe(), units, bind.sourceCost());
         if (match == null || match.pedestalUnits().size() > pedestals.size()) {
             return null;
         }
@@ -159,48 +193,70 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
         return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
     }
 
+    /**
+     * Bind-time recipe search. Returns the unique {@code (recipe, sourceCost)}
+     * tuple whose result matches the pattern output, scanning Ars's full recipe
+     * registry but only with pattern metadata.
+     */
     @Nullable
-    private RecipeMatch findRecipeMatch(ServerLevel level, BlockPos mainPos,
-                                        IPatternDetails pattern,
-                                        List<PlannedUnit> units) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private ApparatusBindHandle findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         for (var holder : recipes(level)) {
             var recipe = holder.value();
-            for (int reagentIndex = 0; reagentIndex < units.size(); reagentIndex++) {
-                var reagent = units.get(reagentIndex);
-                var pedestalUnits = new ArrayList<PlannedUnit>(units.size() - 1);
-                var pedestalStacks = new ArrayList<ItemStack>(units.size() - 1);
-                for (int i = 0; i < units.size(); i++) {
-                    if (i == reagentIndex) {
-                        continue;
-                    }
-                    var unit = units.get(i);
-                    pedestalUnits.add(unit);
-                    pedestalStacks.add(unit.stack());
-                }
-
-                var input = ArsReflection.createApparatusInput(reagent.stack(), pedestalStacks);
-                if (input == null || !recipeMatches(recipe, input, level)) {
-                    continue;
-                }
-
-                var result = assemble(recipe, input, level);
-                if (result.isEmpty() || !outputMatches(pattern, result)) {
-                    continue;
-                }
-
-                int sourceCost = sourceCost(recipe);
-                if (sourceCost < 0 || !hasSourceAvailable(level, mainPos, sourceCost)) {
-                    continue;
-                }
-
-                return new RecipeMatch(reagent, List.copyOf(pedestalUnits), sourceCost);
+            var result = resultItem(recipe, level);
+            if (result.isEmpty() || !outputMatches(pattern, result)) {
+                continue;
             }
+            int sourceCost = sourceCost(recipe);
+            if (sourceCost < 0) {
+                continue;
+            }
+            return new ApparatusBindHandle(recipe, sourceCost);
         }
         return null;
+    }
+
+    /**
+     * Per-push input assignment: tries each input as the reagent, then validates
+     * the remaining units as pedestals via Ars's own {@code matches} hook.
+     */
+    @Nullable
+    private RecipeMatch assignInputsToRecipe(ServerLevel level, Object recipe,
+                                              List<PlannedUnit> units, int sourceCost) {
+        for (int reagentIndex = 0; reagentIndex < units.size(); reagentIndex++) {
+            var reagent = units.get(reagentIndex);
+            var pedestalUnits = new ArrayList<PlannedUnit>(units.size() - 1);
+            var pedestalStacks = new ArrayList<ItemStack>(units.size() - 1);
+            for (int i = 0; i < units.size(); i++) {
+                if (i == reagentIndex) {
+                    continue;
+                }
+                var unit = units.get(i);
+                pedestalUnits.add(unit);
+                pedestalStacks.add(unit.stack());
+            }
+
+            if (recipe instanceof Recipe<?> typedRecipe) {
+                var input = ArsReflection.createApparatusInput(reagent.stack(), pedestalStacks);
+                if (input == null || !recipeMatches(typedRecipe, input, level)) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            return new RecipeMatch(reagent, List.copyOf(pedestalUnits), sourceCost);
+        }
+        return null;
+    }
+
+    private static ItemStack resultItem(Object recipe, ServerLevel level) {
+        if (!(recipe instanceof Recipe<?> typedRecipe)) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            return typedRecipe.getResultItem(level.registryAccess()).copy();
+        } catch (RuntimeException | LinkageError ignored) {
+            return ItemStack.EMPTY;
+        }
     }
 
     private static BiFunction<GenericStack, Actionable, Long> pedestalInserter(
@@ -328,7 +384,7 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
         return (Recipe) recipe;
     }
 
-    private static int sourceCost(Recipe<?> recipe) {
+    private static int sourceCost(Object recipe) {
         try {
             Method method = recipe.getClass().getMethod("sourceCost");
             Object value = method.invoke(recipe);
@@ -467,6 +523,10 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
     }
 
     private record RecipeMatch(PlannedUnit reagent, List<PlannedUnit> pedestalUnits, int sourceCost) {
+    }
+
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record ApparatusBindHandle(Object recipe, int sourceCost) {
     }
 
     private static final class ArsReflection {

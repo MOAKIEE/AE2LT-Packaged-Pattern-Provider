@@ -2,9 +2,10 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.ec;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -13,16 +14,15 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.ModList;
@@ -38,9 +38,12 @@ import appeng.api.stacks.KeyCounter;
 import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
+import com.moakiee.ae2lt.packaged.item.AdapterIds;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingResult;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 /**
  * Runtime adapter for ExtendedCrafting's ordinary crafting tables.
@@ -65,11 +68,6 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
     private static final ResourceLocation ELITE_TABLE_BLOCK = ecId("elite_table");
     private static final ResourceLocation ULTIMATE_TABLE_BLOCK = ecId("ultimate_table");
     private static final ResourceLocation RECIPE_TYPE_ID = ecId("table");
-    private static final int MAX_INPUT_UNITS = 81;
-    private static final int MAX_STABLE_PLAN_CACHE_ENTRIES = 128;
-
-    private final ExtendedCraftingTableBoundedCache<PlanCacheKey, PlanMatch> stablePlanCache =
-            new ExtendedCraftingTableBoundedCache<>(MAX_STABLE_PLAN_CACHE_ENTRIES);
 
     @Override
     public int priority() {
@@ -78,31 +76,77 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isExtendedCraftingLoaded()
+        return be != null
+                && isExtendedCraftingLoaded()
                 && tableSpec(be.getBlockState()) != null
                 && EcReflection.isSupportedTable(be);
     }
 
     @Override
+    @org.jetbrains.annotations.Nullable
+    public net.minecraft.resources.ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        // Tier id matches the live block at the queried position. Higher-tier
+        // adapter cards cover all lower tiers via MultiblockAdapterItem.covers,
+        // so a single ec_ultimate card unlocks every EC table.
+        var spec = tableSpec(level.getBlockState(pos));
+        if (spec == null) {
+            return AdapterIds.EC_BASIC;
+        }
+        return switch (spec.tier()) {
+            case 1 -> AdapterIds.EC_BASIC;
+            case 2 -> AdapterIds.EC_ADVANCED;
+            case 3 -> AdapterIds.EC_ELITE;
+            case 4 -> AdapterIds.EC_ULTIMATE;
+            default -> AdapterIds.EC_BASIC;
+        };
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return null;
+        }
+        if (!hasSingleItemOutput(pattern)) {
+            return null;
+        }
+        var spec = tableSpec(be.getBlockState());
+        if (spec == null) {
+            return null;
+        }
+        return new BindingResult(spec, BindingMode.VIRTUAL);
+    }
+
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        // Virtual lanes have no machine state to check; the actual grid-empty
+        // gate runs inside planVirtualWithBinding because EC tables share the
+        // physical grid with player interaction.
+        return true;
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        // Virtual adapters never produce a real DispatchPlan; route through
+        // planVirtualWithBinding instead.
         return null;
     }
 
     @Override
     @Nullable
-    public VirtualCraftingResult planVirtualCraft(ServerLevel level, BlockPos mainPos,
-                                                  IPatternDetails pattern, KeyCounter[] inputs,
-                                                  IActionSource source) {
-        var be = level.getBlockEntity(mainPos);
-        if (be == null || !recognizesMain(level, mainPos, be)) {
+    public VirtualCraftingResult planVirtualWithBinding(ServerLevel level, BlockPos mainPos,
+                                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                                        Object handle, IActionSource source) {
+        if (!(handle instanceof TableSpec spec)) {
             return null;
         }
 
-        var spec = tableSpec(be.getBlockState());
-        if (spec == null) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be) || !spec.matches(be.getBlockState())) {
             return null;
         }
 
@@ -111,19 +155,40 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             return null;
         }
 
-        var match = findPlanMatchCached(level, pattern, inputs, spec);
-        if (match == null || match.units().isEmpty()) {
+        // New algorithm (user-specified):
+        //   1. Read pattern.output -> patternOutAmount, patternOutKey.
+        //   2. For each candidate recipe:
+        //        K = patternOutAmount / recipe.result.count (must divide)
+        //        Then for each non-empty ingredient, find a provided item
+        //        whose item id matches the ingredient (NBT-loose) and which
+        //        has at least K available; deduct K.
+        //        After all ingredients consumed, provided must be exactly
+        //        empty (no swallowing).
+        //   3. The matched recipe + per-craft layout + K drive the output.
+        var match = resolveBatchMatch(level, pattern, inputs, spec);
+        if (match == null) {
             return null;
         }
 
-        var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), match.units()), spec.tier());
+        var planned = layoutGridFromIngredients(match.recipe(), match.perCraftStacks(), spec);
+        if (planned == null) {
+            return null;
+        }
+
+        var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), planned), spec.tier());
         if (input == null || !recipeMatches(match.recipe(), input, level)) {
-            stablePlanCache.remove(new PlanCacheKey(level.dimension(), spec, patternKey(pattern), inputSignature(inputs)));
             return null;
         }
 
         var result = assemble(match.recipe(), input, level);
-        if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
+        if (result == null || result.isEmpty()) {
+            return null;
+        }
+        long totalCount = (long) match.craftRatio() * result.getCount();
+        if (totalCount <= 0 || totalCount > Integer.MAX_VALUE) {
+            return null;
+        }
+        if (!outputMatchesBatch(pattern, result, totalCount)) {
             return null;
         }
 
@@ -132,7 +197,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             return null;
         }
 
-        var outputs = virtualOutputs(result, remaining);
+        var outputs = virtualOutputs(result, remaining, match.craftRatio());
         if (outputs.isEmpty()) {
             return null;
         }
@@ -184,234 +249,62 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         return List.of(new GenericStack(AEItemKey.of(result), result.getCount()));
     }
 
-    @Nullable
-    private PlanMatch findPlanMatchCached(ServerLevel level, IPatternDetails pattern,
-                                          KeyCounter[] inputs, TableSpec spec) {
-        var key = new PlanCacheKey(level.dimension(), spec, patternKey(pattern), inputSignature(inputs));
-        var cached = stablePlanCache.get(key);
-        if (cached != null && cachedPlanStillMatches(level, pattern, spec, cached)) {
-            return cached;
-        }
-        if (cached != null) {
-            stablePlanCache.remove(key);
-        }
-
-        var computed = findPlanMatch(level, pattern, inputs, spec);
-        if (computed != null) {
-            stablePlanCache.put(key, computed);
-        }
-        return computed;
-    }
-
-    private static boolean cachedPlanStillMatches(ServerLevel level, IPatternDetails pattern,
-                                                  TableSpec spec, PlanMatch match) {
-        var input = EcReflection.createTableInput(
-                spec.gridSize(), stacksForPlan(spec.slots(), match.units()), spec.tier());
-        if (input == null || !recipeMatches(match.recipe(), input, level)) {
-            return false;
-        }
-        var result = assemble(match.recipe(), input, level);
-        return result != null && !result.isEmpty() && outputMatches(pattern, result);
-    }
-
-    private static List<GenericStack> virtualOutputs(ItemStack result, NonNullList<ItemStack> remaining) {
+    private static List<GenericStack> virtualOutputs(ItemStack result, NonNullList<ItemStack> remaining,
+                                                     int craftRatio) {
         var outputs = new ArrayList<GenericStack>();
-        outputs.add(new GenericStack(AEItemKey.of(result), result.getCount()));
+        outputs.add(new GenericStack(AEItemKey.of(result), (long) craftRatio * result.getCount()));
         for (var stack : remaining) {
             if (!stack.isEmpty()) {
-                outputs.add(new GenericStack(AEItemKey.of(stack), stack.getCount()));
+                outputs.add(new GenericStack(AEItemKey.of(stack), (long) craftRatio * stack.getCount()));
             }
         }
         return List.copyOf(outputs);
     }
 
-    private static String patternKey(IPatternDetails pattern) {
-        if (pattern instanceof OverloadedProviderOnlyPatternDetails overload) {
-            return overload.overloadPatternIdentity();
-        }
-        return String.valueOf(pattern.getDefinition());
-    }
-
-    private static List<InputCounterSignature> inputSignature(KeyCounter[] inputs) {
-        var signature = new ArrayList<InputCounterSignature>(inputs.length);
-        for (var input : inputs) {
-            var entries = new ArrayList<InputAmount>();
-            for (var entry : input) {
-                long amount = entry.getLongValue();
-                if (amount > 0) {
-                    entries.add(new InputAmount(entry.getKey(), amount));
-                }
-            }
-            entries.sort(Comparator
-                    .comparingInt((InputAmount entry) -> entry.key().hashCode())
-                    .thenComparing(entry -> String.valueOf(entry.key())));
-            signature.add(new InputCounterSignature(List.copyOf(entries)));
-        }
-        return List.copyOf(signature);
-    }
-
+    /**
+     * Resolves the batch multiplier K and the matching recipe by:
+     *
+     * <ol>
+     *   <li>Reading the pattern's single primary output amount.</li>
+     *   <li>Iterating every EC table recipe whose result item id equals the
+     *       pattern's output item id, and checking
+     *       {@code K = patternOutAmount / recipe.result.count} divides
+     *       cleanly.</li>
+     *   <li>Aggregating the {@link KeyCounter}-provided inputs by item id
+     *       (NBT-loose) and trying to satisfy each non-empty ingredient by
+     *       consuming exactly K units from one of the provided items.</li>
+     *   <li>Confirming nothing is left over (no swallowing) and that the
+     *       pattern output mode (STRICT vs ID_ONLY) is honored.</li>
+     * </ol>
+     *
+     * <p>"NBT-loose" means an ingredient {@code ing} matches a provided
+     * {@link AEItemKey} {@code key} when either {@code ing.test(key.toStack(1))}
+     * succeeds, or any of {@code ing.getItems()} carries the same vanilla
+     * {@link Item} as {@code key}. Pattern inputs may carry NBT/component
+     * variants that the ingredient predicate would otherwise reject — by
+     * relaxing to item-id equality we cover those cases.
+     *
+     * <p>The grid layout returned alongside the recipe uses one
+     * representative stack per ingredient (preferring the provided key when
+     * it strictly passes the ingredient, otherwise falling back to the
+     * item's default instance) so that
+     * {@link Recipe#matches}/{@link Recipe#assemble} run cleanly.
+     */
     @Nullable
-    private static PlanMatch findPlanMatch(ServerLevel level, IPatternDetails pattern,
-                                           KeyCounter[] inputs, TableSpec spec) {
+    private static BatchMatch resolveBatchMatch(ServerLevel level, IPatternDetails pattern,
+                                                KeyCounter[] inputs, TableSpec spec) {
         if (!hasSingleItemOutput(pattern)) {
             return null;
         }
 
-        var slotted = planOverloadedInputs(pattern, inputs, spec);
-        if (slotted != null) {
-            var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), slotted), spec.tier());
-            if (input == null) {
-                return null;
-            }
-            var recipe = findMatchingRecipe(level, pattern, input);
-            return recipe == null ? null : new PlanMatch(slotted, recipe);
-        }
-
-        var units = expandInputUnits(inputs);
-        if (units == null || units.isEmpty() || units.size() > spec.slots()) {
+        var patternOut = pattern.getOutputs().getFirst();
+        if (!(patternOut.what() instanceof AEItemKey patternOutKey) || patternOut.amount() <= 0) {
             return null;
         }
+        long patternOutAmount = patternOut.amount();
 
-        for (var holder : recipes(level)) {
-            var recipe = holder.value();
-            var result = resultItem(recipe, level);
-            if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
-                continue;
-            }
-
-            var planned = planCompactInputsForRecipe(recipe, units, spec);
-            if (planned == null) {
-                continue;
-            }
-            var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), planned), spec.tier());
-            if (input != null && recipeMatches(recipe, input, level)) {
-                return new PlanMatch(planned, recipe);
-            }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static List<PlannedUnit> planOverloadedInputs(IPatternDetails pattern, KeyCounter[] inputs, TableSpec spec) {
-        if (!(pattern instanceof OverloadedProviderOnlyPatternDetails overload)) {
-            return null;
-        }
-
-        var overloadInputs = overload.overloadPatternDetailsView().inputs();
-        if (overloadInputs.isEmpty() || overloadInputs.size() > inputs.length) {
-            return null;
-        }
-
-        var planned = new ArrayList<PlannedUnit>(overloadInputs.size());
-        var usedSlots = new HashSet<Integer>();
-        long total = 0;
-        for (int i = 0; i < overloadInputs.size(); i++) {
-            var inputSlot = overloadInputs.get(i);
-            int slot = inputSlot.slotIndex();
-            if (slot < 0 || slot >= spec.slots() || !usedSlots.add(slot) || inputSlot.amountPerCraft() != 1) {
-                return null;
-            }
-            var key = singleItemKey(inputs[i], inputSlot.matchMode(), AEItemKey.of(inputSlot.template()));
-            if (key == null) {
-                return null;
-            }
-            total++;
-            if (total > MAX_INPUT_UNITS) {
-                return null;
-            }
-            planned.add(new PlannedUnit(slot, key));
-        }
-        return List.copyOf(planned);
-    }
-
-    @Nullable
-    private static AEItemKey singleItemKey(KeyCounter counter, MatchMode mode, AEItemKey template) {
-        AEItemKey result = null;
-        long total = 0;
-        for (var entry : counter) {
-            if (!(entry.getKey() instanceof AEItemKey itemKey)) {
-                return null;
-            }
-            long amount = entry.getLongValue();
-            if (amount <= 0) {
-                continue;
-            }
-            total += amount;
-            if (total > 1) {
-                return null;
-            }
-            if (mode == MatchMode.ID_ONLY) {
-                if (itemKey.getItem() != template.getItem()) {
-                    return null;
-                }
-            } else if (!itemKey.equals(template)) {
-                return null;
-            }
-            result = itemKey;
-        }
-        return total == 1 ? result : null;
-    }
-
-    @Nullable
-    private static List<PlannedUnit> planCompactInputsForRecipe(Object recipe,
-                                                                List<AEItemKey> units,
-                                                                TableSpec spec) {
-        var ingredients = ingredients(recipe);
-        if (ingredients == null || ingredients.isEmpty()) {
-            return null;
-        }
-
-        var width = EcReflection.recipeWidth(recipe);
-        if (width == null) {
-            return planShapelessCompactInputs(units, spec);
-        }
-        if (width <= 0 || width > spec.gridSize()) {
-            return null;
-        }
-
-        var cells = new ArrayList<Ingredient>(ingredients.size());
-        for (var ingredient : ingredients) {
-            if (ingredient.isEmpty()) {
-                cells.add(null);
-                continue;
-            }
-            cells.add(ingredient);
-        }
-
-        var assignments = ExtendedCraftingTableGridPlanner.placeMatching(
-                width,
-                spec.gridSize(),
-                cells,
-                units,
-                (ingredient, key) -> ingredient.test(key.toStack(1)));
-        if (assignments.isEmpty()) {
-            return null;
-        }
-
-        var planned = new ArrayList<PlannedUnit>(assignments.size());
-        for (var assignment : assignments) {
-            planned.add(new PlannedUnit(assignment.slot(), assignment.value()));
-        }
-        return List.copyOf(planned);
-    }
-
-    private static List<PlannedUnit> planShapelessCompactInputs(List<AEItemKey> units, TableSpec spec) {
-        var cells = new ArrayList<PlannedUnit>(units.size());
-        for (var unit : units) {
-            cells.add(new PlannedUnit(-1, unit));
-        }
-        var assignments = ExtendedCraftingTableGridPlanner.place(spec.gridSize(), spec.gridSize(), cells);
-        var planned = new ArrayList<PlannedUnit>(assignments.size());
-        for (var assignment : assignments) {
-            planned.add(new PlannedUnit(assignment.slot(), assignment.value().key()));
-        }
-        return List.copyOf(planned);
-    }
-
-    @Nullable
-    private static List<AEItemKey> expandInputUnits(KeyCounter[] inputs) {
-        var units = new ArrayList<AEItemKey>();
-        long total = 0;
+        var provided = new LinkedHashMap<Item, Long>();
+        var keysByItem = new HashMap<Item, AEItemKey>();
         for (var counter : inputs) {
             for (var entry : counter) {
                 if (!(entry.getKey() instanceof AEItemKey itemKey)) {
@@ -421,35 +314,238 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
                 if (amount <= 0) {
                     continue;
                 }
-                total += amount;
-                if (total > MAX_INPUT_UNITS) {
-                    return null;
-                }
-                for (long i = 0; i < amount; i++) {
-                    units.add(itemKey);
-                }
+                var item = itemKey.getItem();
+                provided.merge(item, amount, Long::sum);
+                keysByItem.putIfAbsent(item, itemKey);
             }
         }
-        return units;
-    }
-
-    @Nullable
-    private static Object findMatchingRecipe(ServerLevel level, IPatternDetails pattern, CraftingInput input) {
-        if (!hasSingleItemOutput(pattern)) {
+        if (provided.isEmpty()) {
             return null;
         }
 
+        var outputMode = outputMode(pattern, 0);
+
         for (var holder : recipes(level)) {
             var recipe = holder.value();
-            var result = assemble(recipe, input, level);
-            if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
+            var resultPreview = resultItem(recipe, level);
+            if (resultPreview == null || resultPreview.isEmpty()) {
                 continue;
             }
-            if (recipeMatches(recipe, input, level)) {
-                return recipe;
+            if (resultPreview.getItem() != patternOutKey.getItem()) {
+                continue;
             }
+            if (outputMode == MatchMode.STRICT
+                    && !patternOutKey.equals(AEItemKey.of(resultPreview))) {
+                continue;
+            }
+
+            int resultCount = resultPreview.getCount();
+            if (resultCount <= 0 || patternOutAmount % resultCount != 0) {
+                continue;
+            }
+            long k = patternOutAmount / resultCount;
+            if (k <= 0 || k > Integer.MAX_VALUE) {
+                continue;
+            }
+
+            var ingredients = ingredients(recipe);
+            if (ingredients == null) {
+                continue;
+            }
+            int ingredientCount = 0;
+            for (var ing : ingredients) {
+                if (!ing.isEmpty()) {
+                    ingredientCount++;
+                }
+            }
+            if (ingredientCount == 0 || ingredientCount > spec.slots()) {
+                continue;
+            }
+
+            var working = new LinkedHashMap<>(provided);
+            var perCraftStacks = new ArrayList<ItemStack>(ingredientCount);
+            boolean ok = true;
+            for (var ing : ingredients) {
+                if (ing.isEmpty()) {
+                    continue;
+                }
+                ItemStack chosenGridStack = pickStackForIngredient(ing, working, keysByItem, k);
+                if (chosenGridStack == null) {
+                    ok = false;
+                    break;
+                }
+                perCraftStacks.add(chosenGridStack);
+            }
+            if (!ok) {
+                continue;
+            }
+
+            boolean leftover = false;
+            for (var v : working.values()) {
+                if (v > 0) {
+                    leftover = true;
+                    break;
+                }
+            }
+            if (leftover) {
+                continue;
+            }
+
+            return new BatchMatch((int) k, recipe, List.copyOf(perCraftStacks));
         }
         return null;
+    }
+
+    /**
+     * Picks one item from the provided pool that satisfies the ingredient.
+     *
+     * <p>Order of preference:
+     * <ol>
+     *   <li>Strict {@code ing.test(providedKey.toStack(1))} — preserves the
+     *       NBT/components of the pattern-provided key on the grid.</li>
+     *   <li>NBT-loose item-id match against {@code ing.getItems()} — falls
+     *       back to the item's default instance so that ingredients which
+     *       check components (e.g. an enchanted-book ingredient) still
+     *       accept a bare provided variant.</li>
+     * </ol>
+     *
+     * <p>Deducts {@code k} from the chosen item's pool on success; returns
+     * {@code null} when no provided item meets the criteria.
+     */
+    @Nullable
+    private static ItemStack pickStackForIngredient(Ingredient ing,
+                                                    LinkedHashMap<Item, Long> working,
+                                                    Map<Item, AEItemKey> keysByItem,
+                                                    long k) {
+        ItemStack strictChoice = null;
+        Item strictItem = null;
+        ItemStack looseChoice = null;
+        Item looseItem = null;
+        for (var entry : working.entrySet()) {
+            if (entry.getValue() < k) {
+                continue;
+            }
+            var item = entry.getKey();
+            var key = keysByItem.get(item);
+            if (key == null) {
+                continue;
+            }
+            var strictStack = key.toStack(1);
+            if (ing.test(strictStack)) {
+                strictChoice = strictStack;
+                strictItem = item;
+                break;
+            }
+            if (looseChoice == null && ingredientAcceptsItemId(ing, item)) {
+                looseChoice = item.getDefaultInstance();
+                looseItem = item;
+            }
+        }
+        ItemStack chosenStack;
+        Item chosenItem;
+        if (strictChoice != null) {
+            chosenStack = strictChoice;
+            chosenItem = strictItem;
+        } else if (looseChoice != null) {
+            chosenStack = looseChoice;
+            chosenItem = looseItem;
+        } else {
+            return null;
+        }
+        long remaining = working.get(chosenItem) - k;
+        if (remaining == 0) {
+            working.remove(chosenItem);
+        } else {
+            working.put(chosenItem, remaining);
+        }
+        return chosenStack;
+    }
+
+    private static boolean ingredientAcceptsItemId(Ingredient ing, Item item) {
+        try {
+            for (var candidate : ing.getItems()) {
+                if (candidate.getItem() == item) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+        }
+        return false;
+    }
+
+    /**
+     * Places one ingredient's representative stack into a grid layout the
+     * EC {@code TableCraftingInput.of} factory can trim and feed to
+     * {@link Recipe#matches}.
+     *
+     * <p>For shaped recipes we walk the ingredient list in its native
+     * {@code width × height} order and copy non-empty cells to the top-left
+     * of the table grid. EC's input wrapper trims the empty borders, so the
+     * absolute placement doesn't matter as long as the relative shape is
+     * preserved.
+     *
+     * <p>For shapeless recipes we drop the stacks row-major into the top of
+     * the grid; shapeless matching ignores positions.
+     */
+    @Nullable
+    private static List<PlannedUnit> layoutGridFromIngredients(Object recipe,
+                                                               List<ItemStack> perCraftStacks,
+                                                               TableSpec spec) {
+        var ingredients = ingredients(recipe);
+        if (ingredients == null || ingredients.isEmpty()) {
+            return null;
+        }
+        int gridSize = spec.gridSize();
+        int slots = spec.slots();
+
+        var width = EcReflection.recipeWidth(recipe);
+        if (width == null) {
+            if (perCraftStacks.size() > slots) {
+                return null;
+            }
+            var planned = new ArrayList<PlannedUnit>(perCraftStacks.size());
+            for (int i = 0; i < perCraftStacks.size(); i++) {
+                int row = i / gridSize;
+                int col = i % gridSize;
+                if (row >= gridSize) {
+                    return null;
+                }
+                planned.add(new PlannedUnit(row * gridSize + col, perCraftStacks.get(i).copy()));
+            }
+            return List.copyOf(planned);
+        }
+
+        if (width <= 0 || width > gridSize) {
+            return null;
+        }
+        int height = (ingredients.size() + width - 1) / width;
+        if (height > gridSize) {
+            return null;
+        }
+
+        var planned = new ArrayList<PlannedUnit>(perCraftStacks.size());
+        int nonEmptyIdx = 0;
+        for (int relRow = 0; relRow < height; relRow++) {
+            for (int relCol = 0; relCol < width; relCol++) {
+                int ingIdx = relRow * width + relCol;
+                if (ingIdx >= ingredients.size()) {
+                    break;
+                }
+                var ing = ingredients.get(ingIdx);
+                if (ing.isEmpty()) {
+                    continue;
+                }
+                if (nonEmptyIdx >= perCraftStacks.size()) {
+                    return null;
+                }
+                int slot = relRow * gridSize + relCol;
+                planned.add(new PlannedUnit(slot, perCraftStacks.get(nonEmptyIdx++).copy()));
+            }
+        }
+        if (nonEmptyIdx != perCraftStacks.size()) {
+            return null;
+        }
+        return List.copyOf(planned);
     }
 
     @Nullable
@@ -541,7 +637,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
     private static List<ItemStack> stacksForPlan(int slots, List<PlannedUnit> planned) {
         var stacks = NonNullList.withSize(slots, ItemStack.EMPTY);
         for (var unit : planned) {
-            stacks.set(unit.slot(), unit.stack());
+            stacks.set(unit.slot(), unit.stack().copy());
         }
         return stacks;
     }
@@ -559,13 +655,21 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         return outputs.size() == 1 && outputs.getFirst().what() instanceof AEItemKey;
     }
 
-    private static boolean outputMatches(IPatternDetails pattern, ItemStack result) {
+    /**
+     * Batch match: pattern output amount must equal the derived total
+     * (K × per-craft result count). Used in the virtual-craft hot path
+     * so the user can write any uniform N:N pattern (e.g.
+     * {@code 8 stone → 8 brick}) and have it consumed in one push.
+     */
+    private static boolean outputMatchesBatch(IPatternDetails pattern, ItemStack result,
+                                               long expectedTotalCount) {
         var outputs = pattern.getOutputs();
         if (outputs.size() != 1) {
             return false;
         }
         var expected = outputs.getFirst();
-        if (!(expected.what() instanceof AEItemKey expectedKey) || expected.amount() != result.getCount()) {
+        if (!(expected.what() instanceof AEItemKey expectedKey)
+                || expected.amount() != expectedTotalCount) {
             return false;
         }
         var actual = AEItemKey.of(result);
@@ -689,30 +793,13 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         }
     }
 
-    private record PlannedUnit(int slot, AEItemKey key) {
+    private record PlannedUnit(int slot, ItemStack stack) {
         PlannedUnit {
-            Objects.requireNonNull(key, "key");
+            Objects.requireNonNull(stack, "stack");
         }
-
-        ItemStack stack() {
-            return key.toStack(1);
-        }
-
     }
 
-    private record PlanMatch(List<PlannedUnit> units, Object recipe) {
-    }
-
-    private record PlanCacheKey(ResourceKey<Level> dimension,
-                                TableSpec spec,
-                                String patternKey,
-                                List<InputCounterSignature> inputSignature) {
-    }
-
-    private record InputCounterSignature(List<InputAmount> entries) {
-    }
-
-    private record InputAmount(Object key, long amount) {
+    private record BatchMatch(int craftRatio, Object recipe, List<ItemStack> perCraftStacks) {
     }
 
     private static final class EcReflection {

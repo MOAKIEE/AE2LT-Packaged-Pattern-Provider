@@ -22,3 +22,9 @@ run
 .vscode/
 docs/
 .claude/
+
+# Eclipse IDE compiled output
+bin/
+
+# Cursor workspace-local configuration
+.cursor/

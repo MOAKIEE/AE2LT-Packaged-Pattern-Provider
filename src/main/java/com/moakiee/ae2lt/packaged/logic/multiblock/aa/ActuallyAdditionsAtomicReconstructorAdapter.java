@@ -1,20 +1,15 @@
 package com.moakiee.ae2lt.packaged.logic.multiblock.aa;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
@@ -22,11 +17,8 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.phys.AABB;
 import net.neoforged.fml.ModList;
 
-import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -37,26 +29,53 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
-import com.moakiee.ae2lt.packaged.logic.multiblock.DroppedItemDispatch;
-import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
-import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingResult;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 /**
- * Runtime adapter for Actually Additions' Atomic Reconstructor conversion lens.
- * The input is dispatched as a dropped item in the first block in front of the
- * reconstructor, matching AA's item-conversion beam AABB and output marker.
+ * Virtual adapter for Actually Additions' Atomic Reconstructor laser
+ * conversions.
+ *
+ * <p>The Atomic Reconstructor is "instant" in spirit — once the beam fires
+ * (every redstone pulse or once per tick when continuously powered) a single
+ * item passes through the laser AABB and converts in the same tick. The mod's
+ * baseline {@code MethodHandler.invokeReconstructor} contains no animation
+ * delay; the ~visual delay players see is the item-entity drop / settle, not
+ * the conversion itself.
+ *
+ * <p>So we equivalent-virtualize it: compute the output, consume the input
+ * from AE, and surface the result through the virtual batch — but still
+ * <b>extract the machine's internal RF/CF</b> via the AA API (the canonical
+ * {@code IEnergyTile.extractEnergy(int)}), keeping the cost side-effect
+ * faithful so the player still has to feed the reconstructor power. If the
+ * reconstructor is starved, the batch returns null and the next push reattempts.
+ *
+ * <p>The default conversion-lens check is preserved as well: only the stock
+ * conversion lens triggers vanilla recipes, so other lenses (death, miner,
+ * color, …) are silently ignored — those have side effects that aren't safely
+ * virtualizable.
  */
-public final class ActuallyAdditionsAtomicReconstructorAdapter implements MultiblockAdapter {
+public final class ActuallyAdditionsAtomicReconstructorAdapter implements VirtualCraftingAdapter {
 
     private static final String MOD_ID = "actuallyadditions";
     private static final ResourceLocation ATOMIC_RECONSTRUCTOR_BLOCK = aaId("atomic_reconstructor");
     private static final ResourceLocation LASER_RECIPE_TYPE = aaId("laser");
-    private static final String INPUT_MARKER = "ae2ltpp_atomic_reconstructor_input";
-    private static final String AA_CONVERTED_MARKER = "aa_cnv";
-    private static final int DEFAULT_LENS_DISTANCE = 10;
+    /**
+     * Per-craft baseline RF charged by the reconstructor regardless of recipe
+     * (matches AA's headroom over {@code recipe.getEnergy()} in 1.21 builds).
+     */
     private static final int BASE_ENERGY_USE = 1000;
     private static final int MAX_INPUT_AMOUNT = 64;
+
+    /**
+     * Beacon-activate has the right "charge / laser fired" timbre and is a
+     * vanilla event that exists in every world, sidestepping the question of
+     * whether AA registers a dedicated reconstructor sound on this version.
+     */
+    private static final ResourceLocation FLUSH_SOUND_ID =
+            ResourceLocation.withDefaultNamespace("block.beacon.activate");
 
     @Override
     public int priority() {
@@ -65,23 +84,72 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isActuallyAdditionsLoaded()
+        return be != null
+                && isActuallyAdditionsLoaded()
                 && blockId(be.getBlockState()).equals(ATOMIC_RECONSTRUCTOR_BLOCK)
                 && AaReconstructorReflection.isAtomicReconstructor(be);
     }
 
     @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.AA_RECONSTRUCTOR;
+    }
+
+    @Override
+    public ResourceLocation flushSoundId() {
+        return FLUSH_SOUND_ID;
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return null;
         }
+        if (!hasSingleItemOutput(pattern)) {
+            return null;
+        }
+        var found = findCandidateRecipe(level, pattern);
+        if (found == null) {
+            return null;
+        }
+        return new BindingResult(found, BindingMode.VIRTUAL);
+    }
 
-        var facing = facingOf(be.getBlockState());
-        if (facing == null || !AaReconstructorReflection.hasDefaultConversionLens(be)) {
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        // Virtual-only path: live charge / lens checks happen inside
+        // planVirtualWithBinding, so the gate is unconditional here.
+        return true;
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        // Virtual-only.
+        return null;
+    }
+
+    @Override
+    @Nullable
+    public VirtualCraftingResult planVirtualWithBinding(ServerLevel level, BlockPos mainPos,
+                                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                                        Object handle, IActionSource source) {
+        if (!(handle instanceof ReconstructorBindHandle bind)) {
+            return null;
+        }
+
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return null;
+        }
+        // Lens gating: only the stock conversion lens runs vanilla recipes
+        // virtualizably; specialized lenses (miner, death, ...) have side
+        // effects we can't faithfully simulate without world interaction.
+        if (!AaReconstructorReflection.hasDefaultConversionLens(be)) {
             return null;
         }
 
@@ -90,138 +158,132 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
             return null;
         }
 
-        var match = findRecipeMatch(level, pattern, input);
-        if (match == null) {
+        var ingredient = AaReconstructorReflection.getInput(bind.recipe());
+        if (ingredient == null || !ingredient.test(input.singleStack())) {
+            return null;
+        }
+        var result = resultItem(bind.recipe(), level);
+        if (result.isEmpty()) {
             return null;
         }
 
-        var inputDropBounds = DroppedItemDispatch.dropAabb(mainPos, facing);
-        if (!hasClearInputDropBlock(level, mainPos, facing)
-                || !hasNoUnconvertedItems(level, inputDropBounds)
-                || !hasEnergy(be, match, input)) {
+        // Parallel batch accounting — see OccultismSpiritFireAdapter for the
+        // same scheme. One push covers the whole batch encoded into the
+        // pattern, so we derive the expected total output from input ratio
+        // and reject the recipe only when the pattern's declared output
+        // doesn't line up.
+        long perCraftInput = perCraftInputAmount(pattern);
+        if (perCraftInput <= 0 || input.amount() % perCraftInput != 0) {
+            return null;
+        }
+        long craftRatio = input.amount() / perCraftInput;
+        long totalCount;
+        try {
+            totalCount = Math.multiplyExact(craftRatio, (long) result.getCount());
+        } catch (ArithmeticException ignored) {
+            return null;
+        }
+        if (totalCount <= 0 || totalCount > Integer.MAX_VALUE) {
+            return null;
+        }
+        if (!outputKeyMatchesBatch(pattern, result, totalCount)) {
             return null;
         }
 
-        var spawned = new AtomicBoolean(false);
-        var target = new TargetSlot(
-                level,
-                mainPos,
-                null,
-                List.of(input.toGenericStack()),
-                InsertionStrategy.CUSTOM,
-                dropInserter(level, mainPos, facing, input, match, inputDropBounds, spawned));
+        // Charge accounting:
+        //   per-craft cost = BASE_ENERGY_USE + recipe.getEnergy()
+        //   total           = per-craft * craftRatio   (NOT * input.amount,
+        //   because each craft transforms a single recipe-input quantity)
+        long perCraftCost = (long) BASE_ENERGY_USE + bind.recipeEnergy();
+        long totalCost;
+        try {
+            totalCost = Math.multiplyExact(perCraftCost, craftRatio);
+        } catch (ArithmeticException ignored) {
+            return null;
+        }
+        if (totalCost > Integer.MAX_VALUE) {
+            return null;
+        }
+        int storedCharge = AaReconstructorReflection.getEnergy(be);
+        if (storedCharge < totalCost) {
+            return null;
+        }
 
-        return new DispatchPlan(
-                List.of(target),
-                () -> {
-                    if (!spawned.get()) {
-                        return;
-                    }
-                    var current = level.getBlockEntity(mainPos);
-                    if (current != null && recognizesMain(level, mainPos, current)) {
-                        AaReconstructorReflection.invokeReconstructor(current);
-                    }
-                });
+        // Modulate phase — side effect is intentional and matches what the
+        // reconstructor would have drawn for craftRatio physical crafts.
+        if (!AaReconstructorReflection.extractEnergy(be, (int) totalCost)) {
+            return null;
+        }
+
+        return new VirtualCraftingResult(List.of(
+                new GenericStack(AEItemKey.of(result), totalCount)));
     }
 
     @Override
     public List<GenericStack> extractOutputs(ServerLevel level, BlockPos mainPos,
                                              AllowedOutputFilter filter,
                                              IActionSource source) {
-        var be = level.getBlockEntity(mainPos);
-        if (be == null || !recognizesMain(level, mainPos, be)) {
-            return List.of();
-        }
-
-        var facing = facingOf(be.getBlockState());
-        if (facing == null) {
-            return List.of();
-        }
-
-        return DroppedItemDispatch.collectOutputs(
-                level,
-                beamBounds(mainPos, facing),
-                filter,
-                ActuallyAdditionsAtomicReconstructorAdapter::isAaConvertedEntity);
+        // Virtual path produces no in-world items.
+        return List.of();
     }
 
-    private static BiFunction<GenericStack, Actionable, Long> dropInserter(
-            ServerLevel level,
-            BlockPos mainPos,
-            Direction facing,
-            PlannedInput input,
-            RecipeMatch match,
-            AABB inputDropBounds,
-            AtomicBoolean spawned) {
-        return (stack, mode) -> {
-            if (!matchesPlannedStack(stack, input)) {
-                return 0L;
-            }
-
-            var be = level.getBlockEntity(mainPos);
-            if (be == null
-                    || !blockId(be.getBlockState()).equals(ATOMIC_RECONSTRUCTOR_BLOCK)
-                    || !AaReconstructorReflection.isAtomicReconstructor(be)
-                    || !AaReconstructorReflection.hasDefaultConversionLens(be)
-                    || !hasClearInputDropBlock(level, mainPos, facing)
-                    || !hasNoUnconvertedItems(level, inputDropBounds)
-                    || !hasEnergy(be, match, input)) {
-                return 0L;
-            }
-
-            if (mode == Actionable.MODULATE) {
-                var position = DroppedItemDispatch.dropPosition(mainPos, facing);
-                if (!DroppedItemDispatch.spawnInput(level, position, input.stack(), INPUT_MARKER)) {
-                    return 0L;
-                }
-                spawned.set(true);
-            }
-            return input.amount();
-        };
-    }
-
+    /**
+     * Bind-time recipe search: pick the recipe whose result <i>item</i>
+     * matches the pattern's primary output, ignoring amount. Batch
+     * verification is deferred to plan time where the input ratio is known.
+     */
     @Nullable
-    private static RecipeMatch findRecipeMatch(ServerLevel level, IPatternDetails pattern, PlannedInput input) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private static ReconstructorBindHandle findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         for (var holder : recipes(level)) {
             var recipe = holder.value();
-            var ingredient = AaReconstructorReflection.getInput(recipe);
             int energy = AaReconstructorReflection.getRecipeEnergy(recipe);
-            if (ingredient == null || energy <= 0 || !ingredient.test(input.singleStack())) {
+            if (energy <= 0) {
                 continue;
             }
-
             var result = resultItem(recipe, level);
-            if (result.isEmpty() || !outputMatches(pattern, result, input.amount())) {
+            if (result.isEmpty()) {
                 continue;
             }
-
-            return new RecipeMatch(recipe, energy);
+            if (!outputKeyMatchesByItem(pattern, result)) {
+                continue;
+            }
+            return new ReconstructorBindHandle(recipe, energy);
         }
         return null;
     }
 
-    private static boolean outputMatches(IPatternDetails pattern, ItemStack result, long convertedCount) {
+    private static boolean outputKeyMatchesByItem(IPatternDetails pattern, ItemStack result) {
         var outputs = pattern.getOutputs();
         if (outputs.size() != 1) {
             return false;
         }
-
         var expected = outputs.getFirst();
-        if (!(expected.what() instanceof AEItemKey expectedKey) || expected.amount() != convertedCount) {
+        if (!(expected.what() instanceof AEItemKey expectedKey)) {
             return false;
         }
-
         var actual = AEItemKey.of(result);
-        return AtomicReconstructorOutputMatcher.matches(
-                expectedKey,
-                actual,
-                outputMode(pattern, 0),
-                (left, right) -> left.equals(right),
-                AEItemKey::dropSecondary);
+        return outputMode(pattern, 0) == MatchMode.ID_ONLY
+                ? expectedKey.dropSecondary().equals(actual.dropSecondary())
+                : expectedKey.equals(actual);
+    }
+
+    private static boolean outputKeyMatchesBatch(IPatternDetails pattern, ItemStack result,
+                                                  long expectedTotalCount) {
+        var outputs = pattern.getOutputs();
+        if (outputs.size() != 1) {
+            return false;
+        }
+        var expected = outputs.getFirst();
+        if (!(expected.what() instanceof AEItemKey expectedKey)) {
+            return false;
+        }
+        if (expected.amount() != expectedTotalCount) {
+            return false;
+        }
+        var actual = AEItemKey.of(result);
+        return outputMode(pattern, 0) == MatchMode.ID_ONLY
+                ? expectedKey.dropSecondary().equals(actual.dropSecondary())
+                : expectedKey.equals(actual);
     }
 
     private static MatchMode outputMode(IPatternDetails pattern, int outputIndex) {
@@ -232,6 +294,16 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
             }
         }
         return MatchMode.STRICT;
+    }
+
+    private static long perCraftInputAmount(IPatternDetails pattern) {
+        if (pattern instanceof OverloadedProviderOnlyPatternDetails overload) {
+            var overloadInputs = overload.overloadPatternDetailsView().inputs();
+            if (!overloadInputs.isEmpty()) {
+                return Math.max(1, overloadInputs.getFirst().amountPerCraft());
+            }
+        }
+        return 1L;
     }
 
     private static boolean hasSingleItemOutput(IPatternDetails pattern) {
@@ -266,48 +338,6 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
         }
 
         return key != null && amount > 0 ? new PlannedInput(key, amount) : null;
-    }
-
-    private static boolean matchesPlannedStack(GenericStack stack, PlannedInput input) {
-        return stack.amount() == input.amount() && input.key().equals(stack.what());
-    }
-
-    private static boolean hasEnergy(BlockEntity be, RecipeMatch match, PlannedInput input) {
-        return AaReconstructorReflection.getEnergy(be) >= BASE_ENERGY_USE + match.energy() * input.amount();
-    }
-
-    private static boolean hasClearInputDropBlock(ServerLevel level, BlockPos mainPos, Direction facing) {
-        var pos = DroppedItemDispatch.dropBlock(mainPos, facing);
-        return level.isLoaded(pos) && level.getBlockState(pos).isAir();
-    }
-
-    private static boolean hasNoUnconvertedItems(ServerLevel level, AABB bounds) {
-        for (var entity : level.getEntitiesOfClass(ItemEntity.class, bounds)) {
-            if (entity.isAlive()
-                    && !entity.getItem().isEmpty()
-                    && !entity.getPersistentData().getBoolean(AA_CONVERTED_MARKER)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean isAaConvertedEntity(ItemEntity entity) {
-        return entity.getPersistentData().getBoolean(AA_CONVERTED_MARKER);
-    }
-
-    private static AABB beamBounds(BlockPos mainPos, Direction facing) {
-        return DroppedItemDispatch.beamAabb(
-                mainPos,
-                mainPos.relative(facing, DEFAULT_LENS_DISTANCE),
-                facing);
-    }
-
-    @Nullable
-    private static Direction facingOf(BlockState state) {
-        return state.hasProperty(BlockStateProperties.FACING)
-                ? state.getValue(BlockStateProperties.FACING)
-                : null;
     }
 
     private static ItemStack resultItem(Object recipe, ServerLevel level) {
@@ -349,41 +379,33 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
         ItemStack singleStack() {
             return key.toStack(1);
         }
-
-        ItemStack stack() {
-            return key.toStack((int) amount);
-        }
-
-        GenericStack toGenericStack() {
-            return new GenericStack(key, amount);
-        }
     }
 
-    private record RecipeMatch(Object recipe, int energy) {
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record ReconstructorBindHandle(Object recipe, int recipeEnergy) {
     }
 
     private static final class AaReconstructorReflection {
+        private static final org.slf4j.Logger LOG =
+                org.slf4j.LoggerFactory.getLogger("ae2ltpp/aa-reconstructor");
+
         private static final String RECONSTRUCTOR_CLASS =
                 "de.ellpeck.actuallyadditions.mod.tile.TileEntityAtomicReconstructor";
         private static final String LENS_CONVERSION_CLASS =
                 "de.ellpeck.actuallyadditions.api.lens.LensConversion";
         private static final String LASER_RECIPE_CLASS =
                 "de.ellpeck.actuallyadditions.mod.crafting.LaserRecipe";
-        private static final String API_CLASS =
-                "de.ellpeck.actuallyadditions.api.ActuallyAdditionsAPI";
-        private static final String METHOD_HANDLER_CLASS =
-                "de.ellpeck.actuallyadditions.api.internal.IMethodHandler";
+        private static final String ENERGY_TILE_INTERFACE =
+                "de.ellpeck.actuallyadditions.api.internal.IEnergyTile";
         private static final String ATOMIC_RECONSTRUCTOR_INTERFACE =
                 "de.ellpeck.actuallyadditions.api.internal.IAtomicReconstructor";
 
         private static volatile boolean lookupDone;
         private static volatile @Nullable Class<?> reconstructorClass;
-        private static volatile @Nullable Class<?> lensConversionClass;
         private static volatile @Nullable Class<?> laserRecipeClass;
-        private static volatile @Nullable Field methodHandlerField;
         private static volatile @Nullable Method getLensMethod;
         private static volatile @Nullable Method getEnergyMethod;
-        private static volatile @Nullable Method invokeReconstructorMethod;
+        private static volatile @Nullable Method extractEnergyMethod;
         private static volatile @Nullable Method getInputMethod;
         private static volatile @Nullable Method getRecipeEnergyMethod;
 
@@ -394,12 +416,25 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
 
         static boolean hasDefaultConversionLens(BlockEntity be) {
             ensureLookup();
-            if (getLensMethod == null || lensConversionClass == null || !isAtomicReconstructor(be)) {
+            if (getLensMethod == null || !isAtomicReconstructor(be)) {
                 return false;
             }
             try {
                 var lens = getLensMethod.invoke(be);
-                return lensConversionClass.isInstance(lens);
+                if (lens == null) {
+                    return false;
+                }
+                // Class-name string compare (instead of Class.forName-based
+                // isInstance) so we don't depend on the LensConversion class
+                // being loadable from our classloader. AA's
+                // {@code TileEntityAtomicReconstructor.getLens()} returns
+                // either the static {@code ActuallyAdditionsAPI.lensDefaultConversion}
+                // singleton (empty slot — typed LensConversion) or a custom
+                // {@code Lens} subclass when a specialized lens item is installed.
+                // Only LensConversion is virtualizable; everything else
+                // (LensMining / LensDeath / LensColor / …) has side effects we
+                // can't faithfully replay without world interaction.
+                return lens.getClass().getName().equals(LENS_CONVERSION_CLASS);
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return false;
             }
@@ -418,18 +453,25 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
             }
         }
 
-        static boolean invokeReconstructor(BlockEntity be) {
+        /**
+         * Drains {@code amount} from the reconstructor's internal storage. AA
+         * routes this through {@code TileEntityAtomicReconstructor.extractEnergy(int)},
+         * which delegates to the underlying {@code storage.extractEnergyInternal}.
+         *
+         * @return false when the lookup or call fails — caller treats this as
+         *         "not enough charge / wrong wiring" and aborts.
+         */
+        static boolean extractEnergy(BlockEntity be, int amount) {
             ensureLookup();
-            if (methodHandlerField == null || invokeReconstructorMethod == null || !isAtomicReconstructor(be)) {
+            if (extractEnergyMethod == null || !isAtomicReconstructor(be)) {
                 return false;
             }
+            if (amount <= 0) {
+                return true;
+            }
             try {
-                var handler = methodHandlerField.get(null);
-                if (handler == null) {
-                    return false;
-                }
-                var value = invokeReconstructorMethod.invoke(handler, be);
-                return value instanceof Boolean b && b;
+                extractEnergyMethod.invoke(be, amount);
+                return true;
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return false;
             }
@@ -474,29 +516,64 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
                 if (lookupDone) {
                     return;
                 }
-                try {
-                    doLookup();
-                } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                } finally {
-                    lookupDone = true;
-                }
+                doLookup();
+                lookupDone = true;
             }
         }
 
-        private static void doLookup() throws ReflectiveOperationException {
-            reconstructorClass = Class.forName(RECONSTRUCTOR_CLASS);
-            lensConversionClass = Class.forName(LENS_CONVERSION_CLASS);
-            laserRecipeClass = Class.forName(LASER_RECIPE_CLASS);
-            var apiClass = Class.forName(API_CLASS);
-            var methodHandlerClass = Class.forName(METHOD_HANDLER_CLASS);
-            var atomicReconstructorInterface = Class.forName(ATOMIC_RECONSTRUCTOR_INTERFACE);
+        /**
+         * Best-effort reflection bootstrap. Each step is independently
+         * try/catch'd so a single broken signature (e.g. AA renaming a
+         * method in a future release) only disables the affected feature,
+         * not the whole adapter. Failures are logged at WARN so an admin
+         * can spot mismatches without having to reconfigure log levels.
+         */
+        private static void doLookup() {
+            reconstructorClass = tryClass(RECONSTRUCTOR_CLASS);
+            laserRecipeClass = tryClass(LASER_RECIPE_CLASS);
+            var atomicReconstructorInterface = tryClass(ATOMIC_RECONSTRUCTOR_INTERFACE);
+            var energyTileInterface = tryClass(ENERGY_TILE_INTERFACE);
 
-            methodHandlerField = apiClass.getField("methodHandler");
-            getLensMethod = atomicReconstructorInterface.getMethod("getLens");
-            getEnergyMethod = atomicReconstructorInterface.getMethod("getEnergy");
-            invokeReconstructorMethod = methodHandlerClass.getMethod("invokeReconstructor", atomicReconstructorInterface);
-            getInputMethod = laserRecipeClass.getMethod("getInput");
-            getRecipeEnergyMethod = laserRecipeClass.getMethod("getEnergy");
+            if (atomicReconstructorInterface != null) {
+                getLensMethod = tryMethod(atomicReconstructorInterface, "getLens");
+            }
+            if (energyTileInterface != null) {
+                getEnergyMethod = tryMethod(energyTileInterface, "getEnergy");
+                extractEnergyMethod = tryMethod(energyTileInterface, "extractEnergy", int.class);
+            }
+            if (laserRecipeClass != null) {
+                getInputMethod = tryMethod(laserRecipeClass, "getInput");
+                getRecipeEnergyMethod = tryMethod(laserRecipeClass, "getEnergy");
+            }
+
+            LOG.info("AA reflection ready: reconstructor={} laser={} getLens={} getEnergy={} extractEnergy={} getInput={} recipeEnergy={}",
+                    reconstructorClass != null,
+                    laserRecipeClass != null,
+                    getLensMethod != null,
+                    getEnergyMethod != null,
+                    extractEnergyMethod != null,
+                    getInputMethod != null,
+                    getRecipeEnergyMethod != null);
+        }
+
+        @Nullable
+        private static Class<?> tryClass(String name) {
+            try {
+                return Class.forName(name);
+            } catch (ClassNotFoundException | LinkageError e) {
+                LOG.warn("AA class lookup failed: {} ({})", name, e.getMessage());
+                return null;
+            }
+        }
+
+        @Nullable
+        private static Method tryMethod(Class<?> declaring, String name, Class<?>... params) {
+            try {
+                return declaring.getMethod(name, params);
+            } catch (NoSuchMethodException | LinkageError e) {
+                LOG.warn("AA method lookup failed: {}#{} ({})", declaring.getName(), name, e.getMessage());
+                return null;
+            }
         }
     }
 }

@@ -36,8 +36,9 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
@@ -76,28 +77,64 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
+        return be != null
+                && isMaLoaded()
+                && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
                 && MaReflection.isInfusionAltar(be);
     }
 
     @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.MA_INFUSION;
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return null;
         }
+        if (!hasSingleItemOutput(pattern)) {
+            return null;
+        }
+        var recipe = findCandidateRecipe(level, pattern);
+        if (recipe == null) {
+            return null;
+        }
+        return new BindingResult(new InfusionBindHandle(recipe), BindingMode.REAL);
+    }
 
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (!(handle instanceof InfusionBindHandle)) {
+            return false;
+        }
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return false;
+        }
+        if (MaReflection.getProgress(be) > 0) {
+            return false;
+        }
         var altarInv = MaReflection.getHandler(be);
         if (altarInv == null || altarInv.getSlots() < 2) {
-            return null;
+            return false;
         }
         if (!altarInv.getStackInSlot(0).isEmpty() || !altarInv.getStackInSlot(1).isEmpty()) {
+            return false;
+        }
+        return findEmptyPedestals(level, mainPos) != null;
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (!(handle instanceof InfusionBindHandle bind)) {
             return null;
         }
-
         var pedestals = findEmptyPedestals(level, mainPos);
         if (pedestals == null) {
             return null;
@@ -108,7 +145,7 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var match = findRecipeMatch(level, pattern, units);
+        var match = assignInputsToRecipe(bind.recipe(), units, level);
         if (match == null) {
             return null;
         }
@@ -167,42 +204,53 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
         return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
     }
 
+    /**
+     * Bind-time recipe search: matches solely on pattern.outputs and recipe
+     * shape (existence of an altar ingredient + sensible ingredient list).
+     */
     @Nullable
-    private static RecipeMatch findRecipeMatch(ServerLevel level, IPatternDetails pattern,
-                                               List<PlannedUnit> units) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private static Object findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         for (var holder : recipes(level)) {
             var recipe = holder.value();
             var result = resultItem(recipe, level);
             if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
                 continue;
             }
+            if (MaReflection.getAltarIngredient(recipe) == null) {
+                continue;
+            }
+            return recipe;
+        }
+        return null;
+    }
 
-            var altarIngredient = MaReflection.getAltarIngredient(recipe);
-            if (altarIngredient == null) {
+    /**
+     * Per-push input assignment against the recipe locked in by {@link #bind}.
+     */
+    @Nullable
+    private static RecipeMatch assignInputsToRecipe(Object recipe, List<PlannedUnit> units,
+                                                    ServerLevel level) {
+        var altarIngredient = MaReflection.getAltarIngredient(recipe);
+        if (altarIngredient == null) {
+            return null;
+        }
+
+        for (int altarIdx = 0; altarIdx < units.size(); altarIdx++) {
+            var altarUnit = units.get(altarIdx);
+            if (!altarIngredient.test(altarUnit.stack())) {
                 continue;
             }
 
-            for (int altarIdx = 0; altarIdx < units.size(); altarIdx++) {
-                var altarUnit = units.get(altarIdx);
-                if (!altarIngredient.test(altarUnit.stack())) {
-                    continue;
+            var pedestalUnits = new ArrayList<PlannedUnit>(units.size() - 1);
+            for (int i = 0; i < units.size(); i++) {
+                if (i != altarIdx) {
+                    pedestalUnits.add(units.get(i));
                 }
+            }
 
-                var pedestalUnits = new ArrayList<PlannedUnit>(units.size() - 1);
-                for (int i = 0; i < units.size(); i++) {
-                    if (i != altarIdx) {
-                        pedestalUnits.add(units.get(i));
-                    }
-                }
-
-                var craftingInput = buildCraftingInput(altarUnit, pedestalUnits);
-                if (recipeMatches(recipe, craftingInput, level)) {
-                    return new RecipeMatch(altarUnit, List.copyOf(pedestalUnits));
-                }
+            var craftingInput = buildCraftingInput(altarUnit, pedestalUnits);
+            if (recipeMatches(recipe, craftingInput, level)) {
+                return new RecipeMatch(altarUnit, List.copyOf(pedestalUnits));
             }
         }
         return null;
@@ -408,6 +456,10 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
     private record RecipeMatch(PlannedUnit altar, List<PlannedUnit> pedestalUnits) {
     }
 
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record InfusionBindHandle(Object recipe) {
+    }
+
     static final class MaReflection {
         private static final String ALTAR_CLASS =
                 "com.blakebr0.mysticalagriculture.tileentity.InfusionAltarTileEntity";
@@ -450,9 +502,9 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return null;
             }
             try {
-                var value = ReflectionSupport.invoke(getInventoryMethod, be).orElse(null);
+                var value = getInventoryMethod.invoke(be);
                 return value instanceof IItemHandler h ? h : null;
-            } catch (RuntimeException | LinkageError ignored) {
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return null;
             }
         }
@@ -479,8 +531,8 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return;
             }
             try {
-                ReflectionSupport.invoke(activateMethod, be);
-            } catch (RuntimeException | LinkageError ignored) {
+                activateMethod.invoke(be);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             }
         }
 
@@ -491,9 +543,9 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return null;
             }
             try {
-                var value = ReflectionSupport.invoke(getAltarIngredientMethod, recipe).orElse(null);
+                var value = getAltarIngredientMethod.invoke(recipe);
                 return value instanceof net.minecraft.world.item.crafting.Ingredient ing ? ing : null;
-            } catch (RuntimeException | LinkageError ignored) {
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return null;
             }
         }
@@ -523,31 +575,24 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
         }
 
         private static void doLookup() throws ReflectiveOperationException {
-            altarClass = requiredClass(ALTAR_CLASS);
-            pedestalClass = requiredClass(PEDESTAL_CLASS);
-            activatableClass = requiredClass(ACTIVATABLE_CLASS);
-            infusionRecipeApiClass = requiredClass(INFUSION_RECIPE_API_CLASS);
-            awakeningRecipeApiClass = ReflectionSupport.findClass(AWAKENING_RECIPE_API_CLASS).orElse(null);
+            altarClass = Class.forName(ALTAR_CLASS);
+            pedestalClass = Class.forName(PEDESTAL_CLASS);
+            activatableClass = Class.forName(ACTIVATABLE_CLASS);
+            infusionRecipeApiClass = Class.forName(INFUSION_RECIPE_API_CLASS);
+            try {
+                awakeningRecipeApiClass = Class.forName(AWAKENING_RECIPE_API_CLASS);
+            } catch (ClassNotFoundException ignored) {
+                awakeningRecipeApiClass = null;
+            }
 
-            var baseInventoryClass = requiredClass(BASE_INVENTORY_CLASS);
-            getInventoryMethod = requiredMethod(baseInventoryClass, "getInventory");
+            var baseInventoryClass = Class.forName(BASE_INVENTORY_CLASS);
+            getInventoryMethod = baseInventoryClass.getMethod("getInventory");
 
-            activateMethod = requiredMethod(activatableClass, "activate");
-            getAltarIngredientMethod = requiredMethod(infusionRecipeApiClass, "getAltarIngredient");
+            activateMethod = activatableClass.getMethod("activate");
+            getAltarIngredientMethod = infusionRecipeApiClass.getMethod("getAltarIngredient");
 
             progressField = altarClass.getDeclaredField("progress");
             progressField.setAccessible(true);
-        }
-
-        private static Class<?> requiredClass(String className) throws ClassNotFoundException {
-            return ReflectionSupport.findClass(className)
-                    .orElseThrow(() -> new ClassNotFoundException(className));
-        }
-
-        private static Method requiredMethod(Class<?> type, String name, Class<?>... parameterTypes)
-                throws NoSuchMethodException {
-            return ReflectionSupport.findMethod(type, name, parameterTypes)
-                    .orElseThrow(() -> new NoSuchMethodException(type.getName() + "#" + name));
         }
     }
 }

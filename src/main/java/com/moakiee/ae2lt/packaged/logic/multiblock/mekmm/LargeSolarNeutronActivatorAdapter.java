@@ -21,10 +21,13 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
 import com.moakiee.ae2lt.logic.AllowedOutputFilter;
+import com.moakiee.ae2lt.packaged.item.AdapterIds;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 public final class LargeSolarNeutronActivatorAdapter implements MultiblockAdapter {
 
@@ -32,10 +35,16 @@ public final class LargeSolarNeutronActivatorAdapter implements MultiblockAdapte
             ResourceLocation.fromNamespaceAndPath("mekmm", "large_solar_neutron_activator");
     private static final String TILE_CLASS =
             "com.jerry.meklm.common.tile.machine.TileEntityLargeSolarNeutronActivator";
+    private static final Object BIND_HANDLE = new Object();
 
     @Override
     public int priority() {
         return 100;
+    }
+
+    @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR;
     }
 
     @Override
@@ -67,9 +76,27 @@ public final class LargeSolarNeutronActivatorAdapter implements MultiblockAdapte
 
     @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
+        mainPos = resolveMainPos(level, mainPos);
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !MekReflection.isTileEntityClass(be, TILE_CLASS)) return null;
+        return new BindingResult(BIND_HANDLE, BindingMode.REAL);
+    }
+
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (handle != BIND_HANDLE) return false;
+        mainPos = resolveMainPos(level, mainPos);
+        var be = level.getBlockEntity(mainPos);
+        return be != null && MekReflection.isTileEntityClass(be, TILE_CLASS);
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (handle != BIND_HANDLE) return null;
         mainPos = resolveMainPos(level, mainPos);
         var be = level.getBlockEntity(mainPos);
         if (be == null || !MekReflection.isTileEntityClass(be, TILE_CLASS)) return null;

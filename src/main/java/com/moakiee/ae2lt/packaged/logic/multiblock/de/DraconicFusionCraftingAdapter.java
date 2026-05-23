@@ -33,6 +33,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
@@ -57,17 +59,52 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
     }
 
     @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.DE_FUSION;
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) return null;
-        if (DEReflection.isCrafting(be)) return null;
+        if (!hasSingleItemOutput(pattern)) return null;
 
-        // Core output slot must be empty or stackable with expected result
+        var recipe = findCandidateRecipe(level, pattern);
+        if (recipe == null) return null;
+        return new BindingResult(new FusionBindHandle(recipe), BindingMode.REAL);
+    }
+
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (!(handle instanceof FusionBindHandle bind)) return false;
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) return false;
+        if (DEReflection.isCrafting(be)) return false;
+
         var outputStack = DEReflection.getOutputStack(be);
-        if (outputStack == null) return null;
+        if (outputStack == null) return false;
+
+        // Output slot may already hold a stackable result; recompute expected.
+        var expected = DEReflection.getResultItem(bind.recipe(), level);
+        if (expected == null || expected.isEmpty()) return false;
+        if (!outputStack.isEmpty()) {
+            if (!ItemStack.isSameItemSameComponents(outputStack, expected)
+                    || outputStack.getCount() + expected.getCount() > expected.getMaxStackSize()) {
+                return false;
+            }
+        }
+        return DEReflection.getInjectors(be, level) != null;
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (!(handle instanceof FusionBindHandle bind)) return null;
+        var be = level.getBlockEntity(mainPos);
+        if (be == null) return null;
 
         var units = expandInputUnits(inputs);
         if (units == null || units.isEmpty()) return null;
@@ -75,28 +112,16 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
         var injectors = DEReflection.getInjectors(be, level);
         if (injectors == null) return null;
 
-        var match = findRecipeMatch(level, be, pattern, units, injectors);
+        var match = assignInputsToRecipe(bind.recipe(), level, units, injectors);
         if (match == null) return null;
 
-        // Verify output slot can accept the result
-        if (!outputStack.isEmpty()) {
-            if (!ItemStack.isSameItemSameComponents(outputStack, match.result())
-                    || outputStack.getCount() + match.result().getCount() > match.result().getMaxStackSize()) {
-                return null;
-            }
-        }
-
-        // Build dispatch targets
         var targets = new ArrayList<TargetSlot>(match.injectorAssignments().size() + 1);
-
-        // Catalyst → core slot 0
         targets.add(new TargetSlot(
                 level, mainPos, null,
                 List.of(match.catalyst().toGenericStack()),
                 InsertionStrategy.CUSTOM,
                 coreInserter(level, mainPos, match.catalyst())));
 
-        // Ingredients → injectors
         for (var assignment : match.injectorAssignments()) {
             targets.add(new TargetSlot(
                     level, assignment.injectorPos(), null,
@@ -130,13 +155,12 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
 
     // ===== Recipe matching =====
 
+    /**
+     * Bind-time search: locks the recipe by pattern.outputs alone, without
+     * needing the runtime KeyCounter inputs or injector tiers.
+     */
     @Nullable
-    private RecipeMatch findRecipeMatch(ServerLevel level, BlockEntity core,
-                                        IPatternDetails pattern,
-                                        List<PlannedUnit> units,
-                                        List<InjectorInfo> injectors) {
-        if (!hasSingleItemOutput(pattern)) return null;
-
+    private static Object findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         var recipes = DEReflection.getFusionRecipes(level);
         if (recipes == null) return null;
 
@@ -150,37 +174,53 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
                     || recipeTierIndex < 0 || resultItem == null || resultItem.isEmpty()) {
                 continue;
             }
-
             if (!outputMatches(pattern, resultItem)) continue;
-
-            int catalystCount = DEReflection.getCatalystCount(recipe);
-            if (catalystCount <= 0) catalystCount = 1;
-
-            // Try to find catalyst units from the expanded inputs
-            var catalystUnits = new ArrayList<PlannedUnit>();
-            var ingredientUnits = new ArrayList<PlannedUnit>();
-            for (var unit : units) {
-                if (catalystUnits.size() < catalystCount && catalyst.test(unit.stack())) {
-                    catalystUnits.add(unit);
-                } else {
-                    ingredientUnits.add(unit);
-                }
-            }
-            if (catalystUnits.size() != catalystCount) continue;
-            if (ingredientUnits.size() != fusionIngredients.size()) continue;
-
-            // Match ingredient units to recipe ingredients
-            var assignments = matchIngredients(
-                    fusionIngredients, ingredientUnits, injectors, recipeTierIndex);
-            if (assignments == null) continue;
-
-            // Build catalyst as a single stack with correct count
-            var catalystKey = catalystUnits.getFirst().key();
-            var catalystPlanned = new PlannedUnit(catalystKey, catalystCount);
-
-            return new RecipeMatch(catalystPlanned, assignments, resultItem);
+            return recipe;
         }
         return null;
+    }
+
+    /**
+     * Per-push input assignment against the recipe locked in by {@link #bind}.
+     * Splits inputs into catalyst units and ingredient units, then matches
+     * ingredient units to injectors that meet the recipe tier.
+     */
+    @Nullable
+    private RecipeMatch assignInputsToRecipe(Object recipe, ServerLevel level,
+                                              List<PlannedUnit> units,
+                                              List<InjectorInfo> injectors) {
+        var catalyst = DEReflection.getCatalyst(recipe);
+        var fusionIngredients = DEReflection.getFusionIngredients(recipe);
+        var recipeTierIndex = DEReflection.getRecipeTierIndex(recipe);
+        var resultItem = DEReflection.getResultItem(recipe, level);
+        if (catalyst == null || fusionIngredients == null
+                || recipeTierIndex < 0 || resultItem == null || resultItem.isEmpty()) {
+            return null;
+        }
+
+        int catalystCount = DEReflection.getCatalystCount(recipe);
+        if (catalystCount <= 0) catalystCount = 1;
+
+        var catalystUnits = new ArrayList<PlannedUnit>();
+        var ingredientUnits = new ArrayList<PlannedUnit>();
+        for (var unit : units) {
+            if (catalystUnits.size() < catalystCount && catalyst.test(unit.stack())) {
+                catalystUnits.add(unit);
+            } else {
+                ingredientUnits.add(unit);
+            }
+        }
+        if (catalystUnits.size() != catalystCount) return null;
+        if (ingredientUnits.size() != fusionIngredients.size()) return null;
+
+        var assignments = matchIngredients(
+                fusionIngredients, ingredientUnits, injectors, recipeTierIndex);
+        if (assignments == null) return null;
+
+        var catalystKey = catalystUnits.getFirst().key();
+        var catalystPlanned = new PlannedUnit(catalystKey, catalystCount);
+
+        return new RecipeMatch(catalystPlanned, assignments, resultItem);
     }
 
     @Nullable
@@ -336,6 +376,9 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
     private record IngredientInfo(Ingredient ingredient, boolean consume) {}
 
     private record RecipeMatch(PlannedUnit catalyst, List<InjectorAssignment> injectorAssignments, ItemStack result) {}
+
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record FusionBindHandle(Object recipe) {}
 
     // ===== DEReflection =====
 
