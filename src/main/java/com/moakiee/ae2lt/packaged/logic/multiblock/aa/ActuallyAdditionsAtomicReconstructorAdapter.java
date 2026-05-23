@@ -207,10 +207,18 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
         if (!AaReconstructorReflection.extractEnergy(be, (int) totalCost)) {
             return null;
         }
-        AaReconstructorReflection.invokeReconstructor(be);
 
         return new VirtualCraftingResult(List.of(
                 new GenericStack(AEItemKey.of(result), totalCount)));
+    }
+
+    @Override
+    public void onVirtualBatchFlush(ServerLevel level, BlockPos mainPos, Object handle, IActionSource source) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return;
+        }
+        AaReconstructorReflection.invokeReconstructor(be);
     }
 
     @Override

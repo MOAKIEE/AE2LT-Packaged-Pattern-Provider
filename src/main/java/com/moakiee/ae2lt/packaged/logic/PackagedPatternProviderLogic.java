@@ -104,6 +104,9 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     @Nullable
     private ResourceLocation pendingFlushSoundId;
 
+    @Nullable
+    private PendingVirtualFlushEffect pendingFlushEffect;
+
     public PackagedPatternProviderLogic(IManagedGridNode mainNode,
                                         OverloadedPatternProviderBlockEntity host,
                                         int patternInventorySize) {
@@ -250,6 +253,8 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             if (sid != null) {
                 pendingFlushSoundId = sid;
             }
+            pendingFlushEffect = new PendingVirtualFlushEffect(
+                    virtualAdapter, env.level(), env.pos(), candidate.handle());
             return true;
         }
         return false;
@@ -351,6 +356,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         // the sound never fires on empty 10-tick windows.
         virtualBatch.tickFlush(gameTick, stacks -> {
             insertOutputsToReturnInv(stacks);
+            runPendingFlushEffect();
             playFlushSound(sl);
         });
 
@@ -625,6 +631,16 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         return BuiltInRegistries.SOUND_EVENT.get(id);
     }
 
+    private void runPendingFlushEffect() {
+        var effect = pendingFlushEffect;
+        pendingFlushEffect = null;
+        if (effect == null) {
+            return;
+        }
+        effect.adapter().onVirtualBatchFlush(
+                effect.level(), effect.pos(), effect.handle(), getActionSource());
+    }
+
     // ===== Adapter key card gating =====
 
     /**
@@ -659,6 +675,12 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     // ===== Helpers =====
 
     private record LaneEnv(ServerLevel level, BlockPos pos) {}
+
+    private record PendingVirtualFlushEffect(VirtualCraftingAdapter adapter,
+                                             ServerLevel level,
+                                             BlockPos pos,
+                                             Object handle) {
+    }
 
     private static boolean isPackagedPatternStack(ItemStack stack) {
         if (stack.isEmpty()) {
