@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "${loader_version_range}"
 license = "${mod_license}"
-issueTrackerURL = "https://github.com/MOAKIEE/AE2-Lightning-Tech/issues"
+issueTrackerURL = "https://github.com/MOAKIEE/AE2LT-Packaged-Pattern-Provider/issues"
 
 [[mods]]
 modId = "${mod_id}"
@@ -47,6 +47,20 @@ side = "BOTH"
 
 [[dependencies."${mod_id}"]]
 modId = "draconicevolution"
+type = "optional"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "actuallyadditions"
+type = "optional"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "extendedcrafting"
 type = "optional"
 versionRange = "[0,)"
 ordering = "AFTER"
