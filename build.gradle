@@ -125,6 +125,7 @@ dependencies {
     implementation "curse.maven:applied-energistics-2-223794:7027323"
     implementation "de.mari_023:ae2wtlib_api:${ae2wtlib_version}"
     compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
 
     def ae2ltMavenNotation = providers.gradleProperty("ae2lt_maven_notation").orNull
     if (ae2ltMavenNotation != null && !ae2ltMavenNotation.isBlank()) {
@@ -140,6 +141,10 @@ dependencies {
     runtimeOnly "org.appliedenergistics:guideme:${guideme_version}"
     runtimeOnly "curse.maven:jei-238222:7391682"
     runtimeOnly "curse.maven:jade-324717:5427817"
+}
+
+test {
+    useJUnitPlatform()
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
