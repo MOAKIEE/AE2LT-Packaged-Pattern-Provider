@@ -25,8 +25,12 @@ public final class MultiblockAdapterRegistry {
         sorted = false;
     }
 
+    /**
+     * Locate the adapter that claims this position. {@code be} may be {@code null}
+     * for blocks without a BlockEntity (e.g. fire-style conversion blocks).
+     */
     @Nullable
-    public static MultiblockAdapter find(ServerLevel level, BlockPos pos, BlockEntity be) {
+    public static MultiblockAdapter find(ServerLevel level, BlockPos pos, @Nullable BlockEntity be) {
         ensureSorted();
         for (var adapter : ADAPTERS) {
             if (adapter.recognizesMain(level, pos, be)) {

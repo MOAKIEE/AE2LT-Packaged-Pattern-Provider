@@ -28,6 +28,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingTableAdapt
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 import com.moakiee.ae2lt.packaged.registry.PPCreativeTabs;
@@ -56,6 +57,7 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new DraconicFusionCraftingAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingTableAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
+            MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
 

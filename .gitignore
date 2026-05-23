@@ -21,3 +21,9 @@ hs_err_pid*
 run
 .vscode/
 docs/
+
+# Eclipse IDE compiled output
+bin/
+
+# Cursor workspace-local configuration
+.cursor/

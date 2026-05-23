@@ -47,10 +47,9 @@ public final class NeighborMainBlockIndex {
             if (!level.isLoaded(pos)) {
                 continue;
             }
+            // BlockEntity may be null (e.g. Occultism's spirit_fire is a fire block
+            // with no BE). Adapters that need a BE must filter for it themselves.
             var be = level.getBlockEntity(pos);
-            if (be == null) {
-                continue;
-            }
             var adapter = MultiblockAdapterRegistry.find(level, pos, be);
             if (adapter != null) {
                 cache.put(dir, adapter);

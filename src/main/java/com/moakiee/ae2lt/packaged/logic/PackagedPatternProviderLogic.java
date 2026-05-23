@@ -1,17 +1,23 @@
 package com.moakiee.ae2lt.packaged.logic;
 
-import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
 
+import appeng.api.config.Actionable;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -24,49 +30,79 @@ import appeng.util.inv.filter.IAEItemFilter;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity.ProviderMode;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity.ReturnMode;
-import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity.WirelessConnection;
 import com.moakiee.ae2lt.item.OverloadPatternItem;
-import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.logic.OverloadedPatternProviderLogic;
 import com.moakiee.ae2lt.logic.SmartDoublingCompat;
 import com.moakiee.ae2lt.logic.energy.PowerCostUtil;
+import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
+import com.moakiee.ae2lt.packaged.blockentity.PackagedPatternProviderBlockEntity;
+import com.moakiee.ae2lt.packaged.item.MultiblockAdapterItem;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchExecutor;
-import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
 import com.moakiee.ae2lt.packaged.logic.multiblock.NeighborMainBlockIndex;
 import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingLaneLimiter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingResult;
-import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.LaneCandidate;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.LaneCooldownTable;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.LaneKey;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.LaneRateLimiter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.PatternBinding;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.PatternBindingTable;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.VirtualBatchAccumulator;
 
+/**
+ * Packaged pattern provider scheduling.
+ *
+ * <p>Compared to the parent {@link OverloadedPatternProviderLogic} this class
+ * implements:
+ * <ul>
+ *   <li><b>Bind once on first use.</b> Recipe / structure search runs in
+ *       {@link MultiblockAdapter#bind} and caches an opaque handle inside
+ *       {@link PatternBindingTable}. Subsequent pushes skip directly to layout.</li>
+ *   <li><b>Virtual batch accumulation.</b> Virtual adapters (no in-world delay)
+ *       deposit outputs into {@link VirtualBatchAccumulator}; the buffer
+ *       flushes every {@value VirtualBatchAccumulator#FLUSH_INTERVAL_TICKS} ticks.
+ *       A {@link LaneRateLimiter} caps each lane at 64 pushes per tick.</li>
+ *   <li><b>Real dispatch three-step.</b> Per push: pre-extract outputs &rarr;
+ *       {@link MultiblockAdapter#canDispatch} &rarr; {@code planWithBinding}.
+ *       Failures route the lane through {@link LaneCooldownTable}'s retry
+ *       schedule (1, 2, 3, 4, 5, 8, 10, 20, 40, then every 40 ticks).</li>
+ *   <li><b>Unified 20-tick auto-return.</b> Real lanes get pulled exactly once
+ *       per 20 ticks; virtual lanes are skipped because they never store outputs
+ *       in the world.</li>
+ * </ul>
+ */
 public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic {
 
-    private static final int BACKOFF_MIN = 5;
-    private static final int BACKOFF_MAX = 40;
-    private static final int FAILURE_THRESHOLD = 3;
-    private static final int FAILURE_BACKOFF_TICKS = 20;
-    private static final int RETURN_SPREAD_TICKS = 20;
-    private static final int VIRTUAL_CRAFTS_PER_TABLE_PER_TICK = 4;
+    /** Maximum virtual-craft acquisitions per lane per game tick. */
+    private static final int VIRTUAL_PUSH_CAP_PER_LANE_PER_TICK = 64;
+
+    /** Auto-return polling interval for real-dispatch lanes. */
+    private static final int AUTO_RETURN_INTERVAL_TICKS = 20;
 
     private final NeighborMainBlockIndex neighborIndex;
-    private final EnumMap<Direction, Integer> faceFailures = new EnumMap<>(Direction.class);
-    private final EnumMap<Direction, Long> faceBackoffUntil = new EnumMap<>(Direction.class);
-    private final EnumMap<Direction, Integer> faceReturnBackoff = new EnumMap<>(Direction.class);
-    private final EnumMap<Direction, Long> faceNextReturnPoll = new EnumMap<>(Direction.class);
-    private final Map<WirelessConnection, Integer> connFailures = new HashMap<>();
-    private final Map<WirelessConnection, Long> connBackoffUntil = new HashMap<>();
-    private final Map<WirelessConnection, Integer> connReturnBackoff = new HashMap<>();
-    private final Map<WirelessConnection, Long> connNextReturnPoll = new HashMap<>();
-    private final EnumMap<Direction, VirtualCraftingLaneLimiter.LaneUse> faceVirtualUses =
-            new EnumMap<>(Direction.class);
-    private final Map<WirelessConnection, VirtualCraftingLaneLimiter.LaneUse> connVirtualUses = new HashMap<>();
-    private final VirtualCraftingLaneLimiter<Direction> faceVirtualLimiter =
-            new VirtualCraftingLaneLimiter<>(faceVirtualUses, VIRTUAL_CRAFTS_PER_TABLE_PER_TICK);
-    private final VirtualCraftingLaneLimiter<WirelessConnection> connVirtualLimiter =
-            new VirtualCraftingLaneLimiter<>(connVirtualUses, VIRTUAL_CRAFTS_PER_TABLE_PER_TICK);
-    private int packagedRoundRobin;
-    private int returnRoundRobin;
-    private long lastReturnRoundRobinTick = -1;
+    private final PatternBindingTable bindingTable = new PatternBindingTable();
+    private final LaneCooldownTable cooldownTable = new LaneCooldownTable();
+    private final LaneRateLimiter virtualPushLimiter =
+            new LaneRateLimiter(VIRTUAL_PUSH_CAP_PER_LANE_PER_TICK);
+    private final VirtualBatchAccumulator virtualBatch = new VirtualBatchAccumulator();
+
+    /** Round-robin cursor across real candidates within a single binding. */
+    private int realPushRoundRobin;
+
+    /** Last server tick at which {@link #runAutoReturnTick} executed; -MIN forces first run. */
+    private long lastAutoReturnTick = Long.MIN_VALUE;
+
+    /**
+     * Sound id captured from the most recent virtual push, replayed by
+     * {@link #playFlushSound} when the batch surfaces. Last-write-wins across
+     * heterogeneous adapter mixes (rare in practice — providers usually only
+     * border one machine kind), and cleared on each flush so an idle window
+     * never spuriously replays a stale cue.
+     */
+    @Nullable
+    private ResourceLocation pendingFlushSoundId;
 
     public PackagedPatternProviderLogic(IManagedGridNode mainNode,
                                         OverloadedPatternProviderBlockEntity host,
@@ -81,10 +117,49 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         this.neighborIndex = new NeighborMainBlockIndex(host.getBlockPos());
     }
 
+    // ===== Pattern lifecycle =====
+
     @Override
     public void updatePatterns() {
         super.updatePatterns();
+        bindingTable.invalidateAll();
     }
+
+    @Override
+    public void onNeighborChanged() {
+        neighborIndex.invalidate();
+        bindingTable.invalidateAll();
+        cooldownTable.clear();
+        super.onNeighborChanged();
+    }
+
+    @Override
+    public void onHostStateChanged() {
+        bindingTable.invalidateAll();
+        pruneStaleLaneState();
+        super.onHostStateChanged();
+    }
+
+    /**
+     * Invoked from the mod-level {@code RecipesUpdatedEvent} listener.
+     * Wipes every cached binding so the next push re-runs {@code bind()}.
+     */
+    public void onRecipesReloaded() {
+        bindingTable.invalidateAll();
+    }
+
+    /**
+     * Hook called by the BlockEntity when the adapter key card slot is edited.
+     * The set of unlock-able adapter ids may have changed, so every cached
+     * binding (which encodes the per-candidate "is this card sufficient?"
+     * decision implicitly) needs to be recomputed on next push.
+     */
+    public void onAdapterSlotChanged() {
+        bindingTable.invalidateAll();
+        cooldownTable.clear();
+    }
+
+    // ===== Push path =====
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
@@ -109,132 +184,150 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             return false;
         }
 
-        var dispatch = getOverloadedHost().getProviderMode() == ProviderMode.NORMAL
-                ? dispatchNormal(sl, patternDetails, inputHolder)
-                : dispatchWireless(sl, patternDetails, inputHolder);
+        long gameTick = sl.getGameTime();
+        var binding = getOrComputeBinding(sl, patternDetails, gameTick);
+        if (!binding.isMatched()) {
+            return false;
+        }
 
-        if (dispatch.success()) {
+        if (tryVirtualPush(sl, patternDetails, inputHolder, binding, gameTick)) {
             PowerCostUtil.consumeRaw(grid, cost);
             syncPendingUnlockRule(patternDetails);
-            insertOutputsToReturnInv(dispatch.virtualOutputs());
-            resetExtractPollTimers();
             alertGridTick();
             ((PatternProviderLogicAccessor) this).invokeOnPushPatternSuccess(patternDetails);
+            return true;
         }
-        return dispatch.success();
+
+        if (tryRealDispatch(sl, patternDetails, inputHolder, binding, gameTick)) {
+            PowerCostUtil.consumeRaw(grid, cost);
+            syncPendingUnlockRule(patternDetails);
+            alertGridTick();
+            ((PatternProviderLogicAccessor) this).invokeOnPushPatternSuccess(patternDetails);
+            return true;
+        }
+
+        return false;
     }
 
-    private PatternDispatchResult dispatchNormal(ServerLevel level, IPatternDetails pattern, KeyCounter[] inputs) {
-        long gameTick = level.getGameTime();
-        for (var face : neighborIndex.adapterFaces(level)) {
-            if (gameTick < faceBackoffUntil.getOrDefault(face, 0L)) {
+    /**
+     * Tries to admit a single virtual craft into the batch accumulator.
+     * One push acquires at most one lane: AE views the push as a single
+     * completed craft, regardless of how many candidates exist.
+     */
+    private boolean tryVirtualPush(ServerLevel level, IPatternDetails pattern, KeyCounter[] inputs,
+                                   PatternBinding binding, long gameTick) {
+        for (var candidate : binding.candidates()) {
+            if (candidate.mode() != BindingMode.VIRTUAL) {
+                continue;
+            }
+            if (!virtualPushLimiter.hasCapacity(candidate.lane(), gameTick)) {
                 continue;
             }
 
-            var adapter = neighborIndex.getAdapter(face);
-            if (adapter == null) {
+            var env = resolveLaneEnv(level, candidate);
+            if (env == null) {
                 continue;
             }
 
-            var mainPos = getOverloadedHost().getBlockPos().relative(face);
-            var virtual = tryVirtualCraft(level, mainPos, adapter, pattern, inputs,
-                    faceVirtualLimiter, face, gameTick);
-            if (virtual != null) {
-                faceFailures.remove(face);
-                return PatternDispatchResult.virtual(virtual.outputs());
-            }
-            if (adapter instanceof VirtualCraftingAdapter) {
+            if (!(candidate.adapter() instanceof VirtualCraftingAdapter virtualAdapter)) {
                 continue;
             }
 
-            var plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
-            if (plan == null) {
+            var result = virtualAdapter.planVirtualWithBinding(
+                    env.level(), env.pos(), pattern, inputs, candidate.handle(), getActionSource());
+            if (result == null || result.outputs().isEmpty()) {
                 continue;
             }
 
-            if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
-                faceFailures.remove(face);
-                return PatternDispatchResult.realSuccess();
+            if (!virtualPushLimiter.tryAcquire(candidate.lane(), gameTick)) {
+                continue;
             }
-
-            bumpFaceFailure(face, gameTick);
-            return PatternDispatchResult.failure();
+            virtualBatch.enqueue(result.outputs());
+            // Remember the adapter's flush cue for the next batch surface;
+            // last-write-wins is fine because providers typically border one
+            // machine kind and players hear at most one cue per 10t window.
+            var sid = virtualAdapter.flushSoundId();
+            if (sid != null) {
+                pendingFlushSoundId = sid;
+            }
+            return true;
         }
-        return PatternDispatchResult.failure();
+        return false;
     }
 
-    private PatternDispatchResult dispatchWireless(ServerLevel providerLevel, IPatternDetails pattern, KeyCounter[] inputs) {
-        long gameTick = providerLevel.getGameTime();
-        var valid = getValidConnections(providerLevel, gameTick);
-        if (valid.isEmpty()) {
-            return PatternDispatchResult.failure();
+    /**
+     * Tries to dispatch one real candidate using the three-step flow:
+     * extract first, gate on {@code canDispatch}, then plan + execute.
+     */
+    private boolean tryRealDispatch(ServerLevel level, IPatternDetails pattern, KeyCounter[] inputs,
+                                    PatternBinding binding, long gameTick) {
+        var realCandidates = new ArrayList<LaneCandidate>();
+        for (var c : binding.candidates()) {
+            if (c.mode() == BindingMode.REAL) {
+                realCandidates.add(c);
+            }
+        }
+        if (realCandidates.isEmpty()) {
+            return false;
         }
 
-        int total = valid.size();
+        int total = realCandidates.size();
+        var filter = getOrBuildOutputFilter();
         for (int i = 0; i < total; i++) {
-            int connIndex = Math.floorMod(packagedRoundRobin + i, total);
-            var conn = valid.get(connIndex);
-            if (gameTick < connBackoffUntil.getOrDefault(conn, 0L)) {
+            int idx = Math.floorMod(realPushRoundRobin + i, total);
+            var candidate = realCandidates.get(idx);
+
+            if (!cooldownTable.isReady(candidate.lane(), gameTick)) {
                 continue;
             }
 
-            var targetLevel = providerLevel.getServer().getLevel(conn.dimension());
-            if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
-                continue;
-            }
-            var be = targetLevel.getBlockEntity(conn.pos());
-            if (be == null) {
-                continue;
-            }
-            var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
-            if (adapter == null) {
+            var env = resolveLaneEnv(level, candidate);
+            if (env == null) {
+                cooldownTable.recordFailure(candidate.lane(), gameTick);
                 continue;
             }
 
-            var virtual = tryVirtualCraft(targetLevel, conn.pos(), adapter, pattern, inputs,
-                    connVirtualLimiter, conn, gameTick);
-            if (virtual != null) {
-                connFailures.remove(conn);
-                packagedRoundRobin = (connIndex + 1) % total;
-                return PatternDispatchResult.virtual(virtual.outputs());
+            // 1. Pre-extract outputs so the machine has output room
+            var extracted = candidate.adapter().extractOutputs(
+                    env.level(), env.pos(), filter, getActionSource());
+            if (!extracted.isEmpty()) {
+                insertOutputsToReturnInv(extracted);
             }
-            if (adapter instanceof VirtualCraftingAdapter) {
+
+            // 2. Cheap gate: is the machine accepting?
+            if (!candidate.adapter().canDispatch(env.level(), env.pos(), candidate.handle())) {
+                cooldownTable.recordFailure(candidate.lane(), gameTick);
                 continue;
             }
 
-            var plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
-            if (plan == null) {
-                bumpConnFailure(conn, gameTick);
+            // 3. Build and execute the plan
+            var plan = candidate.adapter().planWithBinding(
+                    env.level(), env.pos(), pattern, inputs, candidate.handle(), getActionSource());
+            if (plan == null
+                    || !DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
+                cooldownTable.recordFailure(candidate.lane(), gameTick);
                 continue;
             }
 
-            if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
-                connFailures.remove(conn);
-                packagedRoundRobin = (connIndex + 1) % total;
-                return PatternDispatchResult.realSuccess();
-            }
-
-            bumpConnFailure(conn, gameTick);
-            return PatternDispatchResult.failure();
+            cooldownTable.recordSuccess(candidate.lane());
+            realPushRoundRobin = (idx + 1) % total;
+            return true;
         }
-        return PatternDispatchResult.failure();
+        return false;
     }
 
-    @Nullable
-    private <K> VirtualCraftingResult tryVirtualCraft(ServerLevel targetLevel, BlockPos targetPos,
-                                                      MultiblockAdapter adapter,
-                                                      IPatternDetails pattern, KeyCounter[] inputs,
-                                                      VirtualCraftingLaneLimiter<K> limiter, K lane,
-                                                      long gameTick) {
-        if (!(adapter instanceof VirtualCraftingAdapter virtualAdapter) || !limiter.hasCapacity(lane, gameTick)) {
-            return null;
-        }
+    // ===== Tick =====
 
-        var result = virtualAdapter.planVirtualCraft(targetLevel, targetPos, pattern, inputs, getActionSource());
-        if (result == null || result.outputs().isEmpty() || !limiter.tryAcquire(lane, gameTick)) {
-            return null;
-        }
-        return result;
+    /**
+     * Tell the grid ticker we still have work whenever any virtual product is
+     * waiting in the batch. Otherwise the ticker can put us to SLEEP between
+     * pushes and the trailing partial batch (the last craft of an order, e.g.
+     * the final 4 of a 12-product order on a 9x9 EC table) would never flush
+     * &mdash; users see "短 4 个" no matter how large the order is.
+     */
+    @Override
+    public boolean hasAnyTickWork() {
+        return super.hasAnyTickWork() || virtualBatch.hasPending();
     }
 
     @Override
@@ -245,170 +338,358 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
         tickWirelessInductionEnergy();
 
-        if (getOverloadedHost().getReturnMode() != ReturnMode.AUTO || !getGridNode().isActive()) {
-            return;
-        }
-
-        var allowedOutputs = getOrBuildOutputFilter();
-        if (allowedOutputs.isEmpty()) {
-            return;
-        }
-
         var level = getOverloadedHost().getLevel();
         if (!(level instanceof ServerLevel sl)) {
             return;
         }
-
         long gameTick = sl.getGameTime();
-        if (getOverloadedHost().getProviderMode() == ProviderMode.NORMAL) {
-            packagedAutoReturnNormal(sl, allowedOutputs, gameTick);
-        } else {
-            packagedAutoReturnWireless(sl, allowedOutputs, gameTick);
-        }
-    }
 
-    private void packagedAutoReturnNormal(ServerLevel level, AllowedOutputFilter allowedOutputs, long gameTick) {
-        for (var face : neighborIndex.adapterFaces(level)) {
-            if (gameTick < faceNextReturnPoll.getOrDefault(face, 0L)) {
-                continue;
-            }
-            var adapter = neighborIndex.getAdapter(face);
-            if (adapter == null) {
-                continue;
-            }
-            if (adapter instanceof VirtualCraftingAdapter) {
-                continue;
-            }
-            var outputs = adapter.extractOutputs(
-                    level, getOverloadedHost().getBlockPos().relative(face), allowedOutputs, getActionSource());
-            insertOutputsToReturnInv(outputs);
-            updateFaceReturnBackoff(face, gameTick, !outputs.isEmpty());
-        }
-    }
+        // Virtual batch always ticks; outputs surface every 10 ticks.
+        // We swap a lambda for the method-ref so a non-empty flush also plays
+        // a "products arrived" cue, mirroring vanilla pickup feedback. The
+        // accumulator only invokes its sink when there is real product, so
+        // the sound never fires on empty 10-tick windows.
+        virtualBatch.tickFlush(gameTick, stacks -> {
+            insertOutputsToReturnInv(stacks);
+            playFlushSound(sl);
+        });
 
-    private void packagedAutoReturnWireless(ServerLevel providerLevel,
-                                            AllowedOutputFilter allowedOutputs,
-                                            long gameTick) {
-        var valid = getValidConnections(providerLevel, gameTick);
-        int total = valid.size();
-        if (total == 0) {
+        if (getOverloadedHost().getReturnMode() != ReturnMode.AUTO || !getGridNode().isActive()) {
             return;
         }
 
-        long elapsed = lastReturnRoundRobinTick >= 0 ? gameTick - lastReturnRoundRobinTick : 1;
-        lastReturnRoundRobinTick = gameTick;
-        int perTick = Math.max(1, (total + RETURN_SPREAD_TICKS - 1) / RETURN_SPREAD_TICKS);
-        int toProcess = (int) Math.min((long) perTick * elapsed, total);
+        if (lastAutoReturnTick == Long.MIN_VALUE
+                || gameTick - lastAutoReturnTick >= AUTO_RETURN_INTERVAL_TICKS) {
+            runAutoReturnTick(sl, gameTick);
+            lastAutoReturnTick = gameTick;
+        }
+    }
 
-        for (int i = 0; i < toProcess; i++) {
-            int idx = returnRoundRobin % total;
-            returnRoundRobin = (returnRoundRobin + 1) % total;
-            var conn = valid.get(idx);
-            if (gameTick < connNextReturnPoll.getOrDefault(conn, 0L)) {
+    private void runAutoReturnTick(ServerLevel level, long gameTick) {
+        var filter = getOrBuildOutputFilter();
+        if (filter.isEmpty()) {
+            return;
+        }
+
+        if (getOverloadedHost().getProviderMode() == ProviderMode.NORMAL) {
+            autoReturnNormal(level, filter);
+        } else {
+            autoReturnWireless(level, filter, gameTick);
+        }
+    }
+
+    private void autoReturnNormal(ServerLevel level, com.moakiee.ae2lt.logic.AllowedOutputFilter filter) {
+        for (var face : neighborIndex.adapterFaces(level)) {
+            var adapter = neighborIndex.getAdapter(face);
+            if (adapter == null || adapter instanceof VirtualCraftingAdapter) {
                 continue;
             }
+            var pos = getOverloadedHost().getBlockPos().relative(face);
+            var outputs = adapter.extractOutputs(level, pos, filter, getActionSource());
+            if (!outputs.isEmpty()) {
+                insertOutputsToReturnInv(outputs);
+            }
+        }
+    }
 
-            var targetLevel = providerLevel.getServer().getLevel(conn.dimension());
+    private void autoReturnWireless(ServerLevel providerLevel,
+                                     com.moakiee.ae2lt.logic.AllowedOutputFilter filter,
+                                     long gameTick) {
+        var valid = getValidConnections(providerLevel, gameTick);
+        if (valid.isEmpty()) {
+            return;
+        }
+        var server = providerLevel.getServer();
+        for (var conn : valid) {
+            var targetLevel = server.getLevel(conn.dimension());
             if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
                 continue;
             }
+            // BE may be null (plain block adapters like spirit_fire are virtual,
+            // so they get filtered below); pass through to find regardless.
             var be = targetLevel.getBlockEntity(conn.pos());
-            if (be == null) {
-                continue;
-            }
             var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
-            if (adapter == null) {
+            if (adapter == null || adapter instanceof VirtualCraftingAdapter) {
                 continue;
             }
-            if (adapter instanceof VirtualCraftingAdapter) {
+            var outputs = adapter.extractOutputs(targetLevel, conn.pos(), filter, getActionSource());
+            if (!outputs.isEmpty()) {
+                insertOutputsToReturnInv(outputs);
+            }
+        }
+    }
+
+    // ===== Binding =====
+
+    private PatternBinding getOrComputeBinding(ServerLevel level, IPatternDetails pattern, long gameTick) {
+        var existing = bindingTable.get(pattern);
+        if (existing != null) {
+            return existing;
+        }
+        var fresh = computeBinding(level, pattern, gameTick);
+        bindingTable.put(pattern, fresh);
+        return fresh;
+    }
+
+    private PatternBinding computeBinding(ServerLevel level, IPatternDetails pattern, long gameTick) {
+        var candidates = new ArrayList<LaneCandidate>();
+        var mode = getOverloadedHost().getProviderMode();
+        var installedCard = installedAdapterStack();
+
+        if (mode == ProviderMode.NORMAL) {
+            for (var face : neighborIndex.adapterFaces(level)) {
+                var adapter = neighborIndex.getAdapter(face);
+                if (adapter == null) {
+                    continue;
+                }
+                var pos = getOverloadedHost().getBlockPos().relative(face);
+                if (!isAdapterUnlocked(adapter, level, pos, installedCard)) {
+                    continue;
+                }
+                var result = adapter.bind(level, pos, pattern);
+                if (result != null) {
+                    candidates.add(new LaneCandidate(
+                            new LaneKey.FaceLane(face), adapter, result.handle(), result.mode()));
+                }
+            }
+        } else {
+            var server = level.getServer();
+            for (var conn : getValidConnections(level, gameTick)) {
+                var targetLevel = server.getLevel(conn.dimension());
+                if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
+                    continue;
+                }
+                // BE may be null for non-tile blocks (e.g. spirit_fire);
+                // each adapter's recognizesMain must filter for itself.
+                var be = targetLevel.getBlockEntity(conn.pos());
+                var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
+                if (adapter == null) {
+                    continue;
+                }
+                if (!isAdapterUnlocked(adapter, targetLevel, conn.pos(), installedCard)) {
+                    continue;
+                }
+                var result = adapter.bind(targetLevel, conn.pos(), pattern);
+                if (result != null) {
+                    candidates.add(new LaneCandidate(
+                            new LaneKey.ConnLane(conn), adapter, result.handle(), result.mode()));
+                }
+            }
+        }
+
+        return candidates.isEmpty()
+                ? PatternBinding.unmatched(gameTick)
+                : new PatternBinding(candidates, gameTick);
+    }
+
+    /**
+     * Resolves a {@link LaneCandidate} to its live world position and verifies the
+     * adapter still recognizes the block there. Returns {@code null} when the
+     * binding is stale (block changed / chunk unloaded / wireless target gone).
+     */
+    @Nullable
+    private LaneEnv resolveLaneEnv(ServerLevel providerLevel, LaneCandidate candidate) {
+        var lane = candidate.lane();
+        if (lane instanceof LaneKey.FaceLane(Direction face)) {
+            var pos = getOverloadedHost().getBlockPos().relative(face);
+            if (!providerLevel.isLoaded(pos)) {
+                return null;
+            }
+            // BE may be null for plain blocks (e.g. spirit_fire). Defer the
+            // "is this still my multiblock?" check to recognizesMain, which
+            // each adapter implements with the right BE / BlockState mix.
+            var be = providerLevel.getBlockEntity(pos);
+            if (!candidate.adapter().recognizesMain(providerLevel, pos, be)) {
+                return null;
+            }
+            return new LaneEnv(providerLevel, pos);
+        }
+        if (lane instanceof LaneKey.ConnLane connLane) {
+            var conn = connLane.connection();
+            var targetLevel = providerLevel.getServer().getLevel(conn.dimension());
+            if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
+                return null;
+            }
+            var be = targetLevel.getBlockEntity(conn.pos());
+            if (!candidate.adapter().recognizesMain(targetLevel, conn.pos(), be)) {
+                return null;
+            }
+            return new LaneEnv(targetLevel, conn.pos());
+        }
+        return null;
+    }
+
+    private void pruneStaleLaneState() {
+        Set<LaneKey> active = new HashSet<>();
+        for (var dir : EnumSet.allOf(Direction.class)) {
+            active.add(new LaneKey.FaceLane(dir));
+        }
+        for (var conn : getOverloadedHost().getConnections()) {
+            active.add(new LaneKey.ConnLane(conn));
+        }
+        cooldownTable.retainAll(active);
+        virtualPushLimiter.retainAll(active);
+    }
+
+    // ===== Output delivery =====
+
+    /**
+     * Override parent's "drop on power shortage" insertion so packaged provider
+     * never silently swallows products.
+     *
+     * <p>Parent contract: products that can't be paid for are dropped on the floor
+     * (see {@code OverloadedPatternProviderLogic#insertOutputsToReturnInv} —
+     * any stack whose {@code maxAffordable <= 0} hits {@code continue} and is lost).
+     * That's fine for vanilla auto-return because the items are still sitting in
+     * the remote machine and we'll re-poll them. It's catastrophic for virtual
+     * crafts, because AE has already consumed the inputs and the products only
+     * exist inside our batch accumulator.
+     *
+     * <p>This override delivers whatever the grid can pay for right now, then
+     * pushes any leftover back into {@link #virtualBatch} so the next flush (or
+     * the next time energy is available) can finish delivering it.
+     */
+    @Override
+    protected void insertOutputsToReturnInv(List<GenericStack> outputs) {
+        if (outputs.isEmpty()) {
+            return;
+        }
+        var grid = getGridNode().getGrid();
+        var returnInv = getInternalReturnInv();
+        var retained = new ArrayList<GenericStack>();
+
+        for (var stack : outputs) {
+            long total = stack.amount();
+            if (total <= 0) {
                 continue;
             }
+            long actuallyInserted = 0;
+            long affordable = PowerCostUtil.maxAffordable(grid, stack.what(), total);
+            if (affordable > 0) {
+                long inserted = returnInv.insert(0, stack.what(), affordable, Actionable.MODULATE);
+                if (inserted > 0) {
+                    PowerCostUtil.consume(grid, stack.what(), inserted);
+                    actuallyInserted = inserted;
+                }
+            }
+            long undelivered = total - actuallyInserted;
+            if (undelivered > 0) {
+                retained.add(new GenericStack(stack.what(), undelivered));
+            }
+        }
 
-            var outputs = adapter.extractOutputs(targetLevel, conn.pos(), allowedOutputs, getActionSource());
-            insertOutputsToReturnInv(outputs);
-            updateConnReturnBackoff(conn, gameTick, !outputs.isEmpty());
+        if (!retained.isEmpty()) {
+            virtualBatch.enqueue(retained);
+            alertGridTick();
         }
     }
 
-    @Override
-    public void onNeighborChanged() {
-        neighborIndex.invalidate();
-        super.onNeighborChanged();
-    }
-
-    @Override
-    public void onHostStateChanged() {
-        pruneWirelessState();
-        super.onHostStateChanged();
-    }
-
-    private void bumpFaceFailure(Direction face, long gameTick) {
-        int failures = faceFailures.merge(face, 1, Integer::sum);
-        if (failures >= FAILURE_THRESHOLD) {
-            faceFailures.put(face, 0);
-            faceBackoffUntil.put(face, gameTick + FAILURE_BACKOFF_TICKS);
+    /**
+     * Optional "products arrived" cue, played at the provider after a virtual
+     * batch surfaces. Only fires when the contributing adapter explicitly
+     * supplies a signature sound id via
+     * {@link VirtualCraftingAdapter#flushSoundId()}; adapters that don't
+     * (e.g. plain crafting tables) stay silent — the player already hears
+     * their AE terminal click on receipt, so a generic chime would be noise.
+     *
+     * <p>Volume / pitch are tuned low so cluster setups (many providers
+     * flushing in the same tick) don't roar.
+     */
+    private void playFlushSound(ServerLevel level) {
+        var sound = resolveFlushSoundEvent();
+        // Consume the cached id either way so a stale id from one batch can't
+        // bleed into the next; the next push will set a fresh one.
+        pendingFlushSoundId = null;
+        if (sound == null) {
+            return;
         }
+        var pos = getOverloadedHost().getBlockPos();
+        level.playSound(null, pos,
+                sound,
+                SoundSource.BLOCKS,
+                0.5f, 1.0f);
     }
 
-    private void bumpConnFailure(WirelessConnection conn, long gameTick) {
-        int failures = connFailures.merge(conn, 1, Integer::sum);
-        if (failures >= FAILURE_THRESHOLD) {
-            connFailures.put(conn, 0);
-            connBackoffUntil.put(conn, gameTick + FAILURE_BACKOFF_TICKS);
+    /**
+     * Looks up the most recently cached sound id in the live registry.
+     * Returns {@code null} when there's no cached id, or when the id resolves
+     * to nothing (mod absent / sound renamed) — callers fall back to the
+     * generic cue in that case.
+     */
+    @Nullable
+    private SoundEvent resolveFlushSoundEvent() {
+        var id = pendingFlushSoundId;
+        if (id == null) {
+            return null;
         }
+        return BuiltInRegistries.SOUND_EVENT.get(id);
     }
 
-    private void updateFaceReturnBackoff(Direction face, long gameTick, boolean foundItems) {
-        int interval = foundItems
-                ? BACKOFF_MIN
-                : Math.min(faceReturnBackoff.getOrDefault(face, BACKOFF_MIN) * 2, BACKOFF_MAX);
-        faceReturnBackoff.put(face, interval);
-        faceNextReturnPoll.put(face, gameTick + interval);
-    }
+    // ===== Adapter key card gating =====
 
-    private void updateConnReturnBackoff(WirelessConnection conn, long gameTick, boolean foundItems) {
-        int interval = foundItems
-                ? BACKOFF_MIN
-                : Math.min(connReturnBackoff.getOrDefault(conn, BACKOFF_MIN) * 2, BACKOFF_MAX);
-        connReturnBackoff.put(conn, interval);
-        connNextReturnPoll.put(conn, gameTick + interval);
-    }
-
-    private void resetExtractPollTimers() {
-        faceNextReturnPoll.clear();
-        connNextReturnPoll.clear();
-        faceReturnBackoff.clear();
-        connReturnBackoff.clear();
-    }
-
-    private void pruneWirelessState() {
-        var active = getOverloadedHost().getConnections();
-        connFailures.keySet().retainAll(active);
-        connBackoffUntil.keySet().retainAll(active);
-        connReturnBackoff.keySet().retainAll(active);
-        connNextReturnPoll.keySet().retainAll(active);
-        connVirtualLimiter.retainAll(active);
-    }
-
-    private record PatternDispatchResult(boolean success, List<GenericStack> virtualOutputs) {
-        static PatternDispatchResult failure() {
-            return new PatternDispatchResult(false, List.of());
+    /**
+     * @return the key-card ItemStack currently installed in the provider's
+     * adapter slot, or {@link ItemStack#EMPTY} when the slot is empty.
+     */
+    private ItemStack installedAdapterStack() {
+        if (getOverloadedHost() instanceof PackagedPatternProviderBlockEntity packaged) {
+            return packaged.getInstalledAdapterStack();
         }
-
-        static PatternDispatchResult realSuccess() {
-            return new PatternDispatchResult(true, List.of());
-        }
-
-        static PatternDispatchResult virtual(List<GenericStack> outputs) {
-            return new PatternDispatchResult(true, outputs);
-        }
+        return ItemStack.EMPTY;
     }
+
+    /**
+     * Decides whether the adapter at {@code pos} is allowed to participate in
+     * binding given the currently-installed key card. Adapters whose
+     * {@code requiredAdapterId} returns null are always allowed; otherwise the
+     * installed card must {@link MultiblockAdapterItem#covers} the required id
+     * (this handles EC's tier-cover-down chain transparently).
+     */
+    private static boolean isAdapterUnlocked(MultiblockAdapter adapter,
+                                              ServerLevel level,
+                                              BlockPos pos,
+                                              ItemStack installedCard) {
+        var required = adapter.requiredAdapterId(level, pos);
+        if (required == null) {
+            return true;
+        }
+        return MultiblockAdapterItem.stackCovers(installedCard, required);
+    }
+
+    // ===== Helpers =====
+
+    private record LaneEnv(ServerLevel level, BlockPos pos) {}
 
     private static boolean isPackagedPatternStack(ItemStack stack) {
-        if (stack.isEmpty()) return false;
+        if (stack.isEmpty()) {
+            return false;
+        }
         if (stack.getItem() instanceof OverloadPatternItem overloadPatternItem) {
             return overloadPatternItem.hasPayload(stack);
         }
         return PatternDetailsHelper.isEncodedPattern(stack);
+    }
+
+    // ===== Test / debug accessors (package-private) =====
+
+    @SuppressWarnings("unused")
+    PatternBindingTable bindingTableForTesting() {
+        return bindingTable;
+    }
+
+    @SuppressWarnings("unused")
+    LaneCooldownTable cooldownTableForTesting() {
+        return cooldownTable;
+    }
+
+    @SuppressWarnings("unused")
+    VirtualBatchAccumulator virtualBatchForTesting() {
+        return virtualBatch;
+    }
+
+    @SuppressWarnings("unused")
+    private List<LaneCandidate> dumpCandidatesForTesting(IPatternDetails pattern) {
+        var binding = bindingTable.get(pattern);
+        return binding == null ? List.of() : binding.candidates();
     }
 }

@@ -40,6 +40,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 /**
  * Runtime adapter for Actually Additions' Empowerer setup.
@@ -70,30 +72,55 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isActuallyAdditionsLoaded()
+        return be != null
+                && isActuallyAdditionsLoaded()
                 && blockId(be.getBlockState()).equals(EMPOWERER_BLOCK)
                 && AaReflection.isEmpowerer(be);
     }
 
     @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.AA_EMPOWERER;
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return null;
         }
-        if (AaReflection.getProcessTime(be) > 0) {
+        if (!hasSingleItemOutput(pattern)) {
             return null;
         }
-
-        var empowererInv = AaReflection.getHandler(be);
-        if (empowererInv == null || empowererInv.getSlots() < 1
-                || !empowererInv.getStackInSlot(0).isEmpty()) {
+        var recipe = findCandidateRecipe(level, pattern);
+        if (recipe == null) {
             return null;
         }
+        return new BindingResult(new EmpowererBindHandle(recipe), BindingMode.REAL);
+    }
 
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (!(handle instanceof EmpowererBindHandle bind)) return false;
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) return false;
+        if (AaReflection.getProcessTime(be) > 0) return false;
+
+        var inv = AaReflection.getHandler(be);
+        if (inv == null || inv.getSlots() < 1 || !inv.getStackInSlot(0).isEmpty()) return false;
+
+        var stands = findEmptyDisplayStands(level, mainPos);
+        if (stands == null) return false;
+        return standsHaveTickEnergy(level, stands, bind.recipe());
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (!(handle instanceof EmpowererBindHandle bind)) return null;
         var standPositions = findEmptyDisplayStands(level, mainPos);
         if (standPositions == null) {
             return null;
@@ -104,8 +131,8 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
             return null;
         }
 
-        var match = findRecipeMatch(level, pattern, units);
-        if (match == null || !standsHaveTickEnergy(level, standPositions, match.recipe())) {
+        var match = assignInputsToRecipe(bind.recipe(), units);
+        if (match == null) {
             return null;
         }
 
@@ -165,41 +192,55 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
         return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
     }
 
+    /**
+     * Bind-time recipe search: locks the recipe by pattern.outputs and the
+     * structural shape (input ingredient + 4 modifier ingredients).
+     */
     @Nullable
-    private static RecipeMatch findRecipeMatch(ServerLevel level, IPatternDetails pattern,
-                                               List<PlannedUnit> units) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private static Object findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         for (var holder : recipes(level)) {
             var recipe = holder.value();
             var result = resultItem(recipe, level);
             if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
                 continue;
             }
-
-            var input = AaReflection.getInput(recipe);
+            if (AaReflection.getInput(recipe) == null) {
+                continue;
+            }
             var modifiers = AaReflection.getModifiers(recipe);
-            if (input == null || modifiers == null || modifiers.size() != 4) {
+            if (modifiers == null || modifiers.size() != 4) {
                 continue;
             }
-
-            Predicate<PlannedUnit> basePredicate = unit -> input.test(unit.stack());
-            var modifierPredicates = new ArrayList<Predicate<PlannedUnit>>(4);
-            for (var modifier : modifiers) {
-                modifierPredicates.add(unit -> modifier.test(unit.stack()));
-            }
-
-            var match = EmpowererInputMatcher.match(units, basePredicate, modifierPredicates);
-            if (match == null) {
-                continue;
-            }
-            if (AaReflection.recipeMatches(recipe, match.base(), match.modifiers())) {
-                return new RecipeMatch(recipe, match.base(), match.modifiers());
-            }
+            return recipe;
         }
         return null;
+    }
+
+    /**
+     * Per-push input assignment against the recipe locked in by {@link #bind}.
+     */
+    @Nullable
+    private static RecipeMatch assignInputsToRecipe(Object recipe, List<PlannedUnit> units) {
+        var input = AaReflection.getInput(recipe);
+        var modifiers = AaReflection.getModifiers(recipe);
+        if (input == null || modifiers == null || modifiers.size() != 4) {
+            return null;
+        }
+
+        Predicate<PlannedUnit> basePredicate = unit -> input.test(unit.stack());
+        var modifierPredicates = new ArrayList<Predicate<PlannedUnit>>(4);
+        for (var modifier : modifiers) {
+            modifierPredicates.add(unit -> modifier.test(unit.stack()));
+        }
+
+        var match = EmpowererInputMatcher.match(units, basePredicate, modifierPredicates);
+        if (match == null) {
+            return null;
+        }
+        if (!AaReflection.recipeMatches(recipe, match.base(), match.modifiers())) {
+            return null;
+        }
+        return new RecipeMatch(recipe, match.base(), match.modifiers());
     }
 
     @Nullable
@@ -418,6 +459,10 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
     }
 
     private record RecipeMatch(Object recipe, PlannedUnit base, List<PlannedUnit> modifiers) {
+    }
+
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record EmpowererBindHandle(Object recipe) {
     }
 
     private static final class AaReflection {

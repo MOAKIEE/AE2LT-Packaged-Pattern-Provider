@@ -37,6 +37,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
+import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 
@@ -77,28 +79,65 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
+        return be != null
+                && isMaLoaded()
+                && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
                 && AwakeningReflection.isAwakeningAltar(be);
     }
 
     @Override
+    public ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
+        return com.moakiee.ae2lt.packaged.item.AdapterIds.MA_AWAKENING;
+    }
+
+    @Override
     @Nullable
-    public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
-                             IPatternDetails pattern, KeyCounter[] inputs,
-                             IActionSource source) {
+    public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return null;
         }
+        if (!hasSingleItemOutput(pattern)) {
+            return null;
+        }
+        var recipe = findCandidateRecipe(level, pattern);
+        if (recipe == null) {
+            return null;
+        }
+        return new BindingResult(new AwakeningBindHandle(recipe), BindingMode.REAL);
+    }
 
+    @Override
+    public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
+        if (!(handle instanceof AwakeningBindHandle)) {
+            return false;
+        }
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return false;
+        }
+        if (AwakeningReflection.getProgress(be) > 0) {
+            return false;
+        }
         var altarInv = AwakeningReflection.getHandler(be);
         if (altarInv == null || altarInv.getSlots() < 2) {
-            return null;
+            return false;
         }
         if (!altarInv.getStackInSlot(0).isEmpty() || !altarInv.getStackInSlot(1).isEmpty()) {
+            return false;
+        }
+        var slots = scanSubSlots(level, mainPos);
+        return slots != null && slots.pedestals().size() == 4 && slots.vessels().size() == 4;
+    }
+
+    @Override
+    @Nullable
+    public DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                        IPatternDetails pattern, KeyCounter[] inputs,
+                                        Object handle, IActionSource source) {
+        if (!(handle instanceof AwakeningBindHandle bind)) {
             return null;
         }
-
         var slots = scanSubSlots(level, mainPos);
         if (slots == null || slots.pedestals().size() != 4 || slots.vessels().size() != 4) {
             return null;
@@ -109,7 +148,7 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var match = findRecipeMatch(level, pattern, keyTotals);
+        var match = assignInputsToRecipe(bind.recipe(), keyTotals);
         if (match == null) {
             return null;
         }
@@ -179,20 +218,19 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
         return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
     }
 
+    /**
+     * Bind-time recipe search: filters by pattern.outputs and structural
+     * requirements only. Caching this result lets {@code planWithBinding} skip
+     * the recipe-table sweep on every subsequent push.
+     */
     @Nullable
-    private static RecipeMatch findRecipeMatch(ServerLevel level, IPatternDetails pattern,
-                                               Map<AEItemKey, Long> keyTotals) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private static Object findCandidateRecipe(ServerLevel level, IPatternDetails pattern) {
         for (var holder : recipes(level)) {
             var recipe = holder.value();
             var result = resultItem(recipe, level);
             if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
                 continue;
             }
-
             var altarIngredient = AwakeningReflection.getAltarIngredient(recipe);
             var essenceStacks = AwakeningReflection.getEssences(recipe);
             var ingredients = AwakeningReflection.getIngredients(recipe);
@@ -202,38 +240,57 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
             if (essenceStacks.size() != 4 || ingredients.size() != 8) {
                 continue;
             }
+            if (pedestalIngredients(ingredients) == null) {
+                continue;
+            }
+            return recipe;
+        }
+        return null;
+    }
 
-            var pedestalIngredients = pedestalIngredients(ingredients);
-            if (pedestalIngredients == null) {
+    /**
+     * Per-push input assignment against the recipe locked in by {@link #bind}.
+     * Tries each input key as the altar item, then greedily consumes the
+     * remaining keyTotals to satisfy essence vessels + pedestal ingredients.
+     */
+    @Nullable
+    private static RecipeMatch assignInputsToRecipe(Object recipe, Map<AEItemKey, Long> keyTotals) {
+        var altarIngredient = AwakeningReflection.getAltarIngredient(recipe);
+        var essenceStacks = AwakeningReflection.getEssences(recipe);
+        var ingredients = AwakeningReflection.getIngredients(recipe);
+        if (altarIngredient == null || essenceStacks == null || ingredients == null) {
+            return null;
+        }
+        var pedestalIngredients = pedestalIngredients(ingredients);
+        if (pedestalIngredients == null) {
+            return null;
+        }
+
+        for (var altarEntry : keyTotals.entrySet()) {
+            var altarKey = altarEntry.getKey();
+            if (altarEntry.getValue() < 1 || !altarIngredient.test(altarKey.toStack())) {
                 continue;
             }
 
-            for (var altarEntry : keyTotals.entrySet()) {
-                var altarKey = altarEntry.getKey();
-                if (altarEntry.getValue() < 1 || !altarIngredient.test(altarKey.toStack())) {
-                    continue;
-                }
-
-                var working = new HashMap<>(keyTotals);
-                if (!consume(working, altarKey, 1)) {
-                    continue;
-                }
-
-                var essenceAssignments = consumeEssences(working, essenceStacks);
-                if (essenceAssignments == null) {
-                    continue;
-                }
-
-                var pedestalKeys = consumePedestals(working, pedestalIngredients);
-                if (pedestalKeys == null) {
-                    continue;
-                }
-                if (anyRemaining(working)) {
-                    continue;
-                }
-
-                return new RecipeMatch(altarKey, essenceAssignments, pedestalKeys);
+            var working = new HashMap<>(keyTotals);
+            if (!consume(working, altarKey, 1)) {
+                continue;
             }
+
+            var essenceAssignments = consumeEssences(working, essenceStacks);
+            if (essenceAssignments == null) {
+                continue;
+            }
+
+            var pedestalKeys = consumePedestals(working, pedestalIngredients);
+            if (pedestalKeys == null) {
+                continue;
+            }
+            if (anyRemaining(working)) {
+                continue;
+            }
+
+            return new RecipeMatch(altarKey, essenceAssignments, pedestalKeys);
         }
         return null;
     }
@@ -526,6 +583,10 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
     private record RecipeMatch(AEItemKey altarKey,
                                List<EssenceAssignment> essenceAssignments,
                                List<AEItemKey> pedestalKeys) {
+    }
+
+    /** Opaque binding handle returned from {@link #bind}. */
+    private record AwakeningBindHandle(Object recipe) {
     }
 
     private record SubSlots(List<BlockPos> pedestals, List<BlockPos> vessels) {

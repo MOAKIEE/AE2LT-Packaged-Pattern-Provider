@@ -15,16 +15,57 @@ import net.minecraft.world.level.block.state.BlockState;
 import appeng.api.stacks.AEItemKey;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.util.SettingsFrom;
+import appeng.util.inv.AppEngInternalInventory;
+import appeng.util.inv.InternalInventoryHost;
 
 import com.moakiee.ae2lt.api.pattern.PatternProviderUiProfile;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
+import com.moakiee.ae2lt.packaged.item.MultiblockAdapterItem;
 import com.moakiee.ae2lt.packaged.logic.PackagedPatternProviderLogic;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 
 public class PackagedPatternProviderBlockEntity extends OverloadedPatternProviderBlockEntity
         implements PatternProviderUiProfile {
+
+    private static final String TAG_ADAPTER_INV = "ae2ltpp_adapter_inv";
+
     private final ProviderMode fixedProviderMode;
+
+    /**
+     * Single-slot inventory holding the {@link MultiblockAdapterItem} key card
+     * that unlocks this provider's machine family. Empty slot = no adapter
+     * installed = nothing matches in {@link PackagedPatternProviderLogic}'s
+     * binding stage.
+     *
+     * <p>Mirrors AE2LT's {@code OverloadedInterface.filterInv} pattern: a
+     * dedicated {@link AppEngInternalInventory} with a per-slot type filter
+     * and an inventory listener that re-runs the binding pipeline on change.
+     */
+    private final InternalInventoryHost adapterInvHost = new InternalInventoryHost() {
+        @Override
+        public void saveChangedInventory(AppEngInternalInventory inv) {
+            saveChanges();
+            markForUpdate();
+        }
+
+        @Override
+        public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+            onAdapterInventoryChanged();
+        }
+
+        @Override
+        public boolean isClientSide() {
+            return level != null && level.isClientSide();
+        }
+    };
+
+    private final AppEngInternalInventory adapterInv = new AppEngInternalInventory(adapterInvHost, 1) {
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return !stack.isEmpty() && stack.getItem() instanceof MultiblockAdapterItem;
+        }
+    };
 
     public PackagedPatternProviderBlockEntity(BlockPos pos, BlockState blockState) {
         this(PPBlockEntities.PACKAGED_PATTERN_PROVIDER.get(), pos, blockState, ProviderMode.NORMAL);
@@ -35,6 +76,30 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
         super(type, pos, blockState);
         this.fixedProviderMode = fixedProviderMode;
         sanitizePackagedModes();
+    }
+
+    public AppEngInternalInventory getAdapterInv() {
+        return adapterInv;
+    }
+
+    /**
+     * Convenience: the single key card currently installed, or
+     * {@link ItemStack#EMPTY} when the slot is empty.
+     */
+    public ItemStack getInstalledAdapterStack() {
+        return adapterInv.getStackInSlot(0);
+    }
+
+    /**
+     * Notify the dispatch logic that bindings must be re-evaluated because
+     * the player swapped the key card. Safely called from the inventory host
+     * before logic is fully ready (early load phase).
+     */
+    private void onAdapterInventoryChanged() {
+        var logic = getLogic();
+        if (logic instanceof PackagedPatternProviderLogic packaged) {
+            packaged.onAdapterSlotChanged();
+        }
     }
 
     @Override
@@ -122,6 +187,27 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
         sanitizePackagedModes();
+        if (data.contains(TAG_ADAPTER_INV)) {
+            adapterInv.readFromNBT(data, TAG_ADAPTER_INV, registries);
+        }
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        super.saveAdditional(data, registries);
+        adapterInv.writeToNBT(data, TAG_ADAPTER_INV, registries);
+    }
+
+    @Override
+    public void addAdditionalDrops(net.minecraft.world.level.Level level,
+                                    BlockPos pos,
+                                    java.util.List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        var card = adapterInv.getStackInSlot(0);
+        if (!card.isEmpty()) {
+            drops.add(card.copy());
+            adapterInv.setItemDirect(0, ItemStack.EMPTY);
+        }
     }
 
     @Override
