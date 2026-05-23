@@ -36,6 +36,7 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
@@ -449,9 +450,9 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return null;
             }
             try {
-                var value = getInventoryMethod.invoke(be);
+                var value = ReflectionSupport.invoke(getInventoryMethod, be).orElse(null);
                 return value instanceof IItemHandler h ? h : null;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            } catch (RuntimeException | LinkageError ignored) {
                 return null;
             }
         }
@@ -478,8 +479,8 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return;
             }
             try {
-                activateMethod.invoke(be);
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                ReflectionSupport.invoke(activateMethod, be);
+            } catch (RuntimeException | LinkageError ignored) {
             }
         }
 
@@ -490,9 +491,9 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
                 return null;
             }
             try {
-                var value = getAltarIngredientMethod.invoke(recipe);
+                var value = ReflectionSupport.invoke(getAltarIngredientMethod, recipe).orElse(null);
                 return value instanceof net.minecraft.world.item.crafting.Ingredient ing ? ing : null;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            } catch (RuntimeException | LinkageError ignored) {
                 return null;
             }
         }
@@ -522,24 +523,31 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
         }
 
         private static void doLookup() throws ReflectiveOperationException {
-            altarClass = Class.forName(ALTAR_CLASS);
-            pedestalClass = Class.forName(PEDESTAL_CLASS);
-            activatableClass = Class.forName(ACTIVATABLE_CLASS);
-            infusionRecipeApiClass = Class.forName(INFUSION_RECIPE_API_CLASS);
-            try {
-                awakeningRecipeApiClass = Class.forName(AWAKENING_RECIPE_API_CLASS);
-            } catch (ClassNotFoundException ignored) {
-                awakeningRecipeApiClass = null;
-            }
+            altarClass = requiredClass(ALTAR_CLASS);
+            pedestalClass = requiredClass(PEDESTAL_CLASS);
+            activatableClass = requiredClass(ACTIVATABLE_CLASS);
+            infusionRecipeApiClass = requiredClass(INFUSION_RECIPE_API_CLASS);
+            awakeningRecipeApiClass = ReflectionSupport.findClass(AWAKENING_RECIPE_API_CLASS).orElse(null);
 
-            var baseInventoryClass = Class.forName(BASE_INVENTORY_CLASS);
-            getInventoryMethod = baseInventoryClass.getMethod("getInventory");
+            var baseInventoryClass = requiredClass(BASE_INVENTORY_CLASS);
+            getInventoryMethod = requiredMethod(baseInventoryClass, "getInventory");
 
-            activateMethod = activatableClass.getMethod("activate");
-            getAltarIngredientMethod = infusionRecipeApiClass.getMethod("getAltarIngredient");
+            activateMethod = requiredMethod(activatableClass, "activate");
+            getAltarIngredientMethod = requiredMethod(infusionRecipeApiClass, "getAltarIngredient");
 
             progressField = altarClass.getDeclaredField("progress");
             progressField.setAccessible(true);
+        }
+
+        private static Class<?> requiredClass(String className) throws ClassNotFoundException {
+            return ReflectionSupport.findClass(className)
+                    .orElseThrow(() -> new ClassNotFoundException(className));
+        }
+
+        private static Method requiredMethod(Class<?> type, String name, Class<?>... parameterTypes)
+                throws NoSuchMethodException {
+            return ReflectionSupport.findMethod(type, name, parameterTypes)
+                    .orElseThrow(() -> new NoSuchMethodException(type.getName() + "#" + name));
         }
     }
 }

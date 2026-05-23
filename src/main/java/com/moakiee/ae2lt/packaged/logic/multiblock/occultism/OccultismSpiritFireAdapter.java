@@ -321,7 +321,11 @@ public final class OccultismSpiritFireAdapter implements MultiblockAdapter {
     }
 
     private static boolean isOccultismLoaded() {
-        return ModList.get().isLoaded(MOD_ID);
+        try {
+            return ModList.get().isLoaded(MOD_ID);
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private static ResourceLocation blockId(BlockState state) {
