@@ -1,6 +1,5 @@
 package com.moakiee.ae2lt.packaged.logic;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -144,10 +143,10 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             return false;
         }
 
-        List<WirelessConnection> ordered = rotateFrom(valid, packagedRoundRobin);
-
-        for (int i = 0; i < ordered.size(); i++) {
-            var conn = ordered.get(i);
+        int total = valid.size();
+        for (int i = 0; i < total; i++) {
+            int connIndex = Math.floorMod(packagedRoundRobin + i, total);
+            var conn = valid.get(connIndex);
             if (gameTick < connBackoffUntil.getOrDefault(conn, 0L)) {
                 continue;
             }
@@ -167,14 +166,15 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
             var plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
             if (plan == null) {
-                bumpConnFailure(conn, gameTick);
+                if (adapter.shouldBackoffPlanMiss(targetLevel, conn.pos(), pattern, inputs)) {
+                    bumpConnFailure(conn, gameTick);
+                }
                 continue;
             }
 
             if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
                 connFailures.remove(conn);
-                int originalIndex = valid.indexOf(conn);
-                packagedRoundRobin = originalIndex < 0 ? 0 : (originalIndex + 1) % valid.size();
+                packagedRoundRobin = (connIndex + 1) % total;
                 return true;
             }
 
@@ -328,15 +328,6 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         connBackoffUntil.keySet().retainAll(active);
         connReturnBackoff.keySet().retainAll(active);
         connNextReturnPoll.keySet().retainAll(active);
-    }
-
-    private static List<WirelessConnection> rotateFrom(List<WirelessConnection> valid, int start) {
-        int total = valid.size();
-        var ordered = new ArrayList<WirelessConnection>(total);
-        for (int i = 0; i < total; i++) {
-            ordered.add(valid.get(Math.floorMod(start + i, total)));
-        }
-        return ordered;
     }
 
     private static boolean isPackagedPatternStack(ItemStack stack) {

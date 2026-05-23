@@ -2,6 +2,7 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.ec;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +23,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.ModList;
@@ -67,6 +70,8 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     private static final ResourceLocation RECIPE_TYPE_ID = ecId("table");
     private static final int MAX_INPUT_UNITS = 81;
 
+    private final ExtendedCraftingTablePlanCache<PlanCacheKey, PlanMatch> planCache = new ExtendedCraftingTablePlanCache<>();
+
     @Override
     public int priority() {
         return 100;
@@ -77,6 +82,22 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
         return isExtendedCraftingLoaded()
                 && tableSpec(be.getBlockState()) != null
                 && EcReflection.isSupportedTable(be);
+    }
+
+    @Override
+    public boolean shouldBackoffPlanMiss(ServerLevel level, BlockPos mainPos,
+                                         IPatternDetails pattern, KeyCounter[] inputs) {
+        var be = level.getBlockEntity(mainPos);
+        if (be == null || !recognizesMain(level, mainPos, be)) {
+            return true;
+        }
+
+        var spec = tableSpec(be.getBlockState());
+        var handler = EcReflection.getHandler(be);
+        if (spec == null || handler == null || handler.getSlots() < spec.slots()) {
+            return true;
+        }
+        return gridIsEmpty(handler, spec.slots());
     }
 
     @Override
@@ -99,7 +120,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var match = findPlanMatch(level, pattern, inputs, spec);
+        var match = findPlanMatchCached(level, pattern, inputs, spec);
         if (match == null || match.units().isEmpty()) {
             return null;
         }
@@ -158,6 +179,40 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
 
         applyCraftRemainders(modifiable, spec.gridSize(), input, remaining);
         return List.of(new GenericStack(AEItemKey.of(result), result.getCount()));
+    }
+
+    @Nullable
+    private PlanMatch findPlanMatchCached(ServerLevel level, IPatternDetails pattern,
+                                          KeyCounter[] inputs, TableSpec spec) {
+        var key = new PlanCacheKey(
+                level.dimension(),
+                spec,
+                patternKey(pattern),
+                inputSignature(inputs));
+        return planCache.getOrCompute(level.getGameTime(), key, () -> findPlanMatch(level, pattern, inputs, spec));
+    }
+
+    private static String patternKey(IPatternDetails pattern) {
+        if (pattern instanceof OverloadedProviderOnlyPatternDetails overload) {
+            return overload.overloadPatternIdentity();
+        }
+        return String.valueOf(pattern.getDefinition());
+    }
+
+    private static List<String> inputSignature(KeyCounter[] inputs) {
+        var signature = new ArrayList<String>(inputs.length);
+        for (int i = 0; i < inputs.length; i++) {
+            var parts = new ArrayList<String>();
+            for (var entry : inputs[i]) {
+                long amount = entry.getLongValue();
+                if (amount > 0) {
+                    parts.add(entry.getKey() + "=" + amount);
+                }
+            }
+            Collections.sort(parts);
+            signature.add(i + ":" + String.join(",", parts));
+        }
+        return List.copyOf(signature);
     }
 
     @Nullable
@@ -637,6 +692,12 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     }
 
     private record PlanMatch(List<PlannedUnit> units) {
+    }
+
+    private record PlanCacheKey(ResourceKey<Level> dimension,
+                                TableSpec spec,
+                                String patternKey,
+                                List<String> inputSignature) {
     }
 
     private static final class EcReflection {
