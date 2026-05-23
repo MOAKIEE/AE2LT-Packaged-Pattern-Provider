@@ -1,11 +1,11 @@
 package com.moakiee.ae2lt.packaged.logic;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -29,9 +29,7 @@ import com.moakiee.ae2lt.logic.SmartDoublingCompat;
 import com.moakiee.ae2lt.logic.energy.PowerCostUtil;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchExecutor;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
-import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.NeighborMainBlockIndex;
-import com.moakiee.ae2lt.packaged.logic.multiblock.PlanMissRecovery;
 import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
 
 public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic {
@@ -125,15 +123,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             var mainPos = getOverloadedHost().getBlockPos().relative(face);
             var plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
             if (plan == null) {
-                boolean shouldBackoff = adapter.shouldBackoffPlanMiss(level, mainPos, pattern, inputs);
-                if (!recoverPlanMissWithAutoReturn(level, mainPos, adapter, shouldBackoff)) {
-                    continue;
-                }
-                updateFaceReturnBackoff(face, gameTick, true);
-                plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
-                if (plan == null) {
-                    continue;
-                }
+                continue;
             }
 
             if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
@@ -154,10 +144,10 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             return false;
         }
 
-        int total = valid.size();
-        for (int i = 0; i < total; i++) {
-            int connIndex = Math.floorMod(packagedRoundRobin + i, total);
-            var conn = valid.get(connIndex);
+        List<WirelessConnection> ordered = rotateFrom(valid, packagedRoundRobin);
+
+        for (int i = 0; i < ordered.size(); i++) {
+            var conn = ordered.get(i);
             if (gameTick < connBackoffUntil.getOrDefault(conn, 0L)) {
                 continue;
             }
@@ -177,22 +167,14 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
             var plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
             if (plan == null) {
-                boolean shouldBackoff = adapter.shouldBackoffPlanMiss(targetLevel, conn.pos(), pattern, inputs);
-                if (recoverPlanMissWithAutoReturn(targetLevel, conn.pos(), adapter, shouldBackoff)) {
-                    updateConnReturnBackoff(conn, gameTick, true);
-                    plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
-                }
-                if (plan == null) {
-                    if (shouldBackoff) {
-                        bumpConnFailure(conn, gameTick);
-                    }
-                    continue;
-                }
+                bumpConnFailure(conn, gameTick);
+                continue;
             }
 
             if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
                 connFailures.remove(conn);
-                packagedRoundRobin = (connIndex + 1) % total;
+                int originalIndex = valid.indexOf(conn);
+                packagedRoundRobin = originalIndex < 0 ? 0 : (originalIndex + 1) % valid.size();
                 return true;
             }
 
@@ -200,25 +182,6 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             return false;
         }
         return false;
-    }
-
-    private boolean recoverPlanMissWithAutoReturn(ServerLevel targetLevel, BlockPos targetPos,
-                                                  MultiblockAdapter adapter, boolean shouldBackoff) {
-        if (shouldBackoff) {
-            return false;
-        }
-        if (getOverloadedHost().getReturnMode() != ReturnMode.AUTO || !getGridNode().isActive()) {
-            return false;
-        }
-
-        var allowedOutputs = getOrBuildOutputFilter();
-        if (allowedOutputs.isEmpty()) {
-            return false;
-        }
-
-        var outputs = adapter.extractOutputs(targetLevel, targetPos, allowedOutputs, getActionSource());
-        insertOutputsToReturnInv(outputs);
-        return PlanMissRecovery.shouldRetryAfterAutoReturn(shouldBackoff, !outputs.isEmpty());
     }
 
     @Override
@@ -365,6 +328,15 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
         connBackoffUntil.keySet().retainAll(active);
         connReturnBackoff.keySet().retainAll(active);
         connNextReturnPoll.keySet().retainAll(active);
+    }
+
+    private static List<WirelessConnection> rotateFrom(List<WirelessConnection> valid, int start) {
+        int total = valid.size();
+        var ordered = new ArrayList<WirelessConnection>(total);
+        for (int i = 0; i < total; i++) {
+            ordered.add(valid.get(Math.floorMod(start + i, total)));
+        }
+        return ordered;
     }
 
     private static boolean isPackagedPatternStack(ItemStack stack) {
