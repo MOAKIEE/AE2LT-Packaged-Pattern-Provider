@@ -2,17 +2,18 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.ec;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
 
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -21,13 +22,13 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
-import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -38,9 +39,8 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
-import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
-import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
+import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.VirtualCraftingResult;
 
 /**
  * Runtime adapter for ExtendedCrafting's ordinary crafting tables.
@@ -52,12 +52,12 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
  *   elite_table    7x7, tier 3
  *   ultimate_table 9x9, tier 4
  *
- * These tables do not store an output slot in the block entity; the GUI uses a
- * transient ResultContainer. This adapter therefore treats extraction as a
- * virtual "take result" operation: it assembles the matching recipe, applies
- * remaining-items logic, mutates the input grid, and returns the result.
+ * These tables act as virtual crafting lanes for packaged providers. Inputs are
+ * consumed by AE, while this adapter validates the matching table recipe and
+ * returns the assembled result plus remaining items without inserting into the
+ * table grid.
  */
-public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
+public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapter {
 
     private static final String MOD_ID = "extendedcrafting";
     private static final ResourceLocation BASIC_TABLE_BLOCK = ecId("basic_table");
@@ -66,6 +66,10 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     private static final ResourceLocation ULTIMATE_TABLE_BLOCK = ecId("ultimate_table");
     private static final ResourceLocation RECIPE_TYPE_ID = ecId("table");
     private static final int MAX_INPUT_UNITS = 81;
+    private static final int MAX_STABLE_PLAN_CACHE_ENTRIES = 128;
+
+    private final ExtendedCraftingTableBoundedCache<PlanCacheKey, PlanMatch> stablePlanCache =
+            new ExtendedCraftingTableBoundedCache<>(MAX_STABLE_PLAN_CACHE_ENTRIES);
 
     @Override
     public int priority() {
@@ -84,6 +88,14 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     public DispatchPlan plan(ServerLevel level, BlockPos mainPos,
                              IPatternDetails pattern, KeyCounter[] inputs,
                              IActionSource source) {
+        return null;
+    }
+
+    @Override
+    @Nullable
+    public VirtualCraftingResult planVirtualCraft(ServerLevel level, BlockPos mainPos,
+                                                  IPatternDetails pattern, KeyCounter[] inputs,
+                                                  IActionSource source) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return null;
@@ -99,20 +111,32 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var match = findPlanMatch(level, pattern, inputs, spec);
+        var match = findPlanMatchCached(level, pattern, inputs, spec);
         if (match == null || match.units().isEmpty()) {
             return null;
         }
 
-        var targets = new ArrayList<TargetSlot>(match.units().size());
-        for (var unit : match.units()) {
-            targets.add(new TargetSlot(
-                    level, mainPos, null,
-                    List.of(unit.toGenericStack()),
-                    InsertionStrategy.CUSTOM,
-                    tableSlotInserter(level, mainPos, spec, unit)));
+        var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), match.units()), spec.tier());
+        if (input == null || !recipeMatches(match.recipe(), input, level)) {
+            stablePlanCache.remove(new PlanCacheKey(level.dimension(), spec, patternKey(pattern), inputSignature(inputs)));
+            return null;
         }
-        return new DispatchPlan(List.copyOf(targets), null);
+
+        var result = assemble(match.recipe(), input, level);
+        if (result == null || result.isEmpty() || !outputMatches(pattern, result)) {
+            return null;
+        }
+
+        var remaining = remainingItems(match.recipe(), input);
+        if (remaining == null) {
+            return null;
+        }
+
+        var outputs = virtualOutputs(result, remaining);
+        if (outputs.isEmpty()) {
+            return null;
+        }
+        return new VirtualCraftingResult(outputs);
     }
 
     @Override
@@ -161,6 +185,72 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
     }
 
     @Nullable
+    private PlanMatch findPlanMatchCached(ServerLevel level, IPatternDetails pattern,
+                                          KeyCounter[] inputs, TableSpec spec) {
+        var key = new PlanCacheKey(level.dimension(), spec, patternKey(pattern), inputSignature(inputs));
+        var cached = stablePlanCache.get(key);
+        if (cached != null && cachedPlanStillMatches(level, pattern, spec, cached)) {
+            return cached;
+        }
+        if (cached != null) {
+            stablePlanCache.remove(key);
+        }
+
+        var computed = findPlanMatch(level, pattern, inputs, spec);
+        if (computed != null) {
+            stablePlanCache.put(key, computed);
+        }
+        return computed;
+    }
+
+    private static boolean cachedPlanStillMatches(ServerLevel level, IPatternDetails pattern,
+                                                  TableSpec spec, PlanMatch match) {
+        var input = EcReflection.createTableInput(
+                spec.gridSize(), stacksForPlan(spec.slots(), match.units()), spec.tier());
+        if (input == null || !recipeMatches(match.recipe(), input, level)) {
+            return false;
+        }
+        var result = assemble(match.recipe(), input, level);
+        return result != null && !result.isEmpty() && outputMatches(pattern, result);
+    }
+
+    private static List<GenericStack> virtualOutputs(ItemStack result, NonNullList<ItemStack> remaining) {
+        var outputs = new ArrayList<GenericStack>();
+        outputs.add(new GenericStack(AEItemKey.of(result), result.getCount()));
+        for (var stack : remaining) {
+            if (!stack.isEmpty()) {
+                outputs.add(new GenericStack(AEItemKey.of(stack), stack.getCount()));
+            }
+        }
+        return List.copyOf(outputs);
+    }
+
+    private static String patternKey(IPatternDetails pattern) {
+        if (pattern instanceof OverloadedProviderOnlyPatternDetails overload) {
+            return overload.overloadPatternIdentity();
+        }
+        return String.valueOf(pattern.getDefinition());
+    }
+
+    private static List<InputCounterSignature> inputSignature(KeyCounter[] inputs) {
+        var signature = new ArrayList<InputCounterSignature>(inputs.length);
+        for (var input : inputs) {
+            var entries = new ArrayList<InputAmount>();
+            for (var entry : input) {
+                long amount = entry.getLongValue();
+                if (amount > 0) {
+                    entries.add(new InputAmount(entry.getKey(), amount));
+                }
+            }
+            entries.sort(Comparator
+                    .comparingInt((InputAmount entry) -> entry.key().hashCode())
+                    .thenComparing(entry -> String.valueOf(entry.key())));
+            signature.add(new InputCounterSignature(List.copyOf(entries)));
+        }
+        return List.copyOf(signature);
+    }
+
+    @Nullable
     private static PlanMatch findPlanMatch(ServerLevel level, IPatternDetails pattern,
                                            KeyCounter[] inputs, TableSpec spec) {
         if (!hasSingleItemOutput(pattern)) {
@@ -174,7 +264,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
                 return null;
             }
             var recipe = findMatchingRecipe(level, pattern, input);
-            return recipe == null ? null : new PlanMatch(slotted);
+            return recipe == null ? null : new PlanMatch(slotted, recipe);
         }
 
         var units = expandInputUnits(inputs);
@@ -195,7 +285,7 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             }
             var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), planned), spec.tier());
             if (input != null && recipeMatches(recipe, input, level)) {
-                return new PlanMatch(planned);
+                return new PlanMatch(planned, recipe);
             }
         }
         return null;
@@ -371,29 +461,6 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             }
         }
         return null;
-    }
-
-    private static BiFunction<GenericStack, Actionable, Long> tableSlotInserter(
-            ServerLevel level, BlockPos pos, TableSpec spec, PlannedUnit unit) {
-        return (stack, mode) -> {
-            if (stack.amount() != 1 || !unit.key().equals(stack.what())) {
-                return 0L;
-            }
-            var be = level.getBlockEntity(pos);
-            if (be == null || !spec.matches(be.getBlockState()) || !EcReflection.isSupportedTable(be)) {
-                return 0L;
-            }
-            var handler = EcReflection.getHandler(be);
-            if (!(handler instanceof IItemHandlerModifiable modifiable)
-                    || modifiable.getSlots() < spec.slots()
-                    || !modifiable.getStackInSlot(unit.slot()).isEmpty()) {
-                return 0L;
-            }
-            if (mode == Actionable.MODULATE) {
-                modifiable.setStackInSlot(unit.slot(), unit.stack());
-            }
-            return 1L;
-        };
     }
 
     private static boolean canApplyRemaining(IItemHandler handler, int gridSize, CraftingInput input,
@@ -631,12 +698,21 @@ public final class ExtendedCraftingTableAdapter implements MultiblockAdapter {
             return key.toStack(1);
         }
 
-        GenericStack toGenericStack() {
-            return new GenericStack(key, 1);
-        }
     }
 
-    private record PlanMatch(List<PlannedUnit> units) {
+    private record PlanMatch(List<PlannedUnit> units, Object recipe) {
+    }
+
+    private record PlanCacheKey(ResourceKey<Level> dimension,
+                                TableSpec spec,
+                                String patternKey,
+                                List<InputCounterSignature> inputSignature) {
+    }
+
+    private record InputCounterSignature(List<InputAmount> entries) {
+    }
+
+    private record InputAmount(Object key, long amount) {
     }
 
     private static final class EcReflection {
