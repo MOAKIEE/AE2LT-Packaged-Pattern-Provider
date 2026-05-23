@@ -20,6 +20,7 @@ import com.moakiee.ae2lt.logic.UnlimitedReturnInventory;
 import com.moakiee.ae2lt.packaged.blockentity.PackagedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.packaged.blockentity.WirelessPackagedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
+import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsAtomicReconstructorAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsEmpowererAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauEnchantingApparatusAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.de.DraconicFusionCraftingAdapter;
@@ -49,6 +50,7 @@ public class AE2LTPackagedProvider {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            MultiblockAdapterRegistry.register(new ActuallyAdditionsAtomicReconstructorAdapter());
             MultiblockAdapterRegistry.register(new ActuallyAdditionsEmpowererAdapter());
             MultiblockAdapterRegistry.register(new ArsNouveauEnchantingApparatusAdapter());
             MultiblockAdapterRegistry.register(new DraconicFusionCraftingAdapter());
