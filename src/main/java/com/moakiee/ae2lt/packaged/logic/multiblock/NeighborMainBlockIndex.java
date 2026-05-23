@@ -48,9 +48,6 @@ public final class NeighborMainBlockIndex {
                 continue;
             }
             var be = level.getBlockEntity(pos);
-            if (be == null) {
-                continue;
-            }
             var adapter = MultiblockAdapterRegistry.find(level, pos, be);
             if (adapter != null) {
                 cache.put(dir, adapter);

@@ -65,7 +65,7 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Multib
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isActuallyAdditionsLoaded()
+        return be != null && isActuallyAdditionsLoaded()
                 && blockId(be.getBlockState()).equals(ATOMIC_RECONSTRUCTOR_BLOCK)
                 && AaReconstructorReflection.isAtomicReconstructor(be);
     }

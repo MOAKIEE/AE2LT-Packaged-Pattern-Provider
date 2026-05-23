@@ -75,7 +75,7 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
+        return be != null && isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
                 && MaReflection.isInfusionAltar(be);
     }
 

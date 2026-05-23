@@ -74,7 +74,7 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isArsLoaded() && blockId(be.getBlockState()).equals(APPARATUS_BLOCK) && be instanceof Container;
+        return be != null && isArsLoaded() && blockId(be.getBlockState()).equals(APPARATUS_BLOCK) && be instanceof Container;
     }
 
     @Override

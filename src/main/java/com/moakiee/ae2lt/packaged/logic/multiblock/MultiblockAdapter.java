@@ -21,7 +21,7 @@ public interface MultiblockAdapter {
     int priority();
 
     /** Cheap check: is this BlockEntity a main block handled by this adapter? */
-    boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be);
+    boolean recognizesMain(ServerLevel level, BlockPos pos, @Nullable BlockEntity be);
 
     /**
      * Return a prevalidated dispatch plan, or null when the pattern cannot run

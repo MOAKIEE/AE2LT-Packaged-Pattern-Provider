@@ -70,7 +70,7 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isActuallyAdditionsLoaded()
+        return be != null && isActuallyAdditionsLoaded()
                 && blockId(be.getBlockState()).equals(EMPOWERER_BLOCK)
                 && AaReflection.isEmpowerer(be);
     }

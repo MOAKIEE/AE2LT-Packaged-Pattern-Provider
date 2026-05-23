@@ -53,7 +53,7 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isDeLoaded() && blockId(be.getBlockState()).equals(CRAFTING_CORE_BLOCK);
+        return be != null && isDeLoaded() && blockId(be.getBlockState()).equals(CRAFTING_CORE_BLOCK);
     }
 
     @Override

@@ -77,7 +77,7 @@ public final class AwakeningAltarAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
+        return be != null && isMaLoaded() && blockId(be.getBlockState()).equals(ALTAR_BLOCK)
                 && AwakeningReflection.isAwakeningAltar(be);
     }
 

@@ -78,7 +78,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return isExtendedCraftingLoaded()
+        return be != null && isExtendedCraftingLoaded()
                 && tableSpec(be.getBlockState()) != null
                 && EcReflection.isSupportedTable(be);
     }

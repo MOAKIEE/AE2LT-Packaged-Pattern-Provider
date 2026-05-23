@@ -26,7 +26,7 @@ public final class MultiblockAdapterRegistry {
     }
 
     @Nullable
-    public static MultiblockAdapter find(ServerLevel level, BlockPos pos, BlockEntity be) {
+    public static MultiblockAdapter find(ServerLevel level, BlockPos pos, @Nullable BlockEntity be) {
         ensureSorted();
         for (var adapter : ADAPTERS) {
             if (adapter.recognizesMain(level, pos, be)) {
