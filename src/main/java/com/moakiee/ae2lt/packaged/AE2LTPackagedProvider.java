@@ -23,6 +23,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsEmpowererAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauEnchantingApparatusAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.de.DraconicFusionCraftingAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingTableAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
@@ -51,6 +52,7 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ActuallyAdditionsEmpowererAdapter());
             MultiblockAdapterRegistry.register(new ArsNouveauEnchantingApparatusAdapter());
             MultiblockAdapterRegistry.register(new DraconicFusionCraftingAdapter());
+            MultiblockAdapterRegistry.register(new ExtendedCraftingTableAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
