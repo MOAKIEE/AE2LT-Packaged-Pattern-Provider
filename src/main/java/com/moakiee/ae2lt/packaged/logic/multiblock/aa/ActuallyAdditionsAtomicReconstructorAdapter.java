@@ -1,5 +1,6 @@
 package com.moakiee.ae2lt.packaged.logic.multiblock.aa;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
@@ -69,14 +70,6 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
     private static final int BASE_ENERGY_USE = 1000;
     private static final int MAX_INPUT_AMOUNT = 64;
 
-    /**
-     * Beacon-activate has the right "charge / laser fired" timbre and is a
-     * vanilla event that exists in every world, sidestepping the question of
-     * whether AA registers a dedicated reconstructor sound on this version.
-     */
-    private static final ResourceLocation FLUSH_SOUND_ID =
-            ResourceLocation.withDefaultNamespace("block.beacon.activate");
-
     @Override
     public int priority() {
         return 90;
@@ -97,7 +90,7 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
 
     @Override
     public ResourceLocation flushSoundId() {
-        return FLUSH_SOUND_ID;
+        return null;
     }
 
     @Override
@@ -214,6 +207,7 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
         if (!AaReconstructorReflection.extractEnergy(be, (int) totalCost)) {
             return null;
         }
+        AaReconstructorReflection.invokeReconstructor(be);
 
         return new VirtualCraftingResult(List.of(
                 new GenericStack(AEItemKey.of(result), totalCount)));
@@ -395,6 +389,10 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
                 "de.ellpeck.actuallyadditions.api.lens.LensConversion";
         private static final String LASER_RECIPE_CLASS =
                 "de.ellpeck.actuallyadditions.mod.crafting.LaserRecipe";
+        private static final String API_CLASS =
+                "de.ellpeck.actuallyadditions.api.ActuallyAdditionsAPI";
+        private static final String METHOD_HANDLER_CLASS =
+                "de.ellpeck.actuallyadditions.api.internal.IMethodHandler";
         private static final String ENERGY_TILE_INTERFACE =
                 "de.ellpeck.actuallyadditions.api.internal.IEnergyTile";
         private static final String ATOMIC_RECONSTRUCTOR_INTERFACE =
@@ -403,7 +401,9 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
         private static volatile boolean lookupDone;
         private static volatile @Nullable Class<?> reconstructorClass;
         private static volatile @Nullable Class<?> laserRecipeClass;
+        private static volatile @Nullable Field methodHandlerField;
         private static volatile @Nullable Method getLensMethod;
+        private static volatile @Nullable Method invokeReconstructorMethod;
         private static volatile @Nullable Method getEnergyMethod;
         private static volatile @Nullable Method extractEnergyMethod;
         private static volatile @Nullable Method getInputMethod;
@@ -435,6 +435,23 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
                 // (LensMining / LensDeath / LensColor / …) has side effects we
                 // can't faithfully replay without world interaction.
                 return lens.getClass().getName().equals(LENS_CONVERSION_CLASS);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                return false;
+            }
+        }
+
+        static boolean invokeReconstructor(BlockEntity be) {
+            ensureLookup();
+            if (methodHandlerField == null || invokeReconstructorMethod == null || !isAtomicReconstructor(be)) {
+                return false;
+            }
+            try {
+                var handler = methodHandlerField.get(null);
+                if (handler == null) {
+                    return false;
+                }
+                var value = invokeReconstructorMethod.invoke(handler, be);
+                return value instanceof Boolean b && b;
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return false;
             }
@@ -531,9 +548,18 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
         private static void doLookup() {
             reconstructorClass = tryClass(RECONSTRUCTOR_CLASS);
             laserRecipeClass = tryClass(LASER_RECIPE_CLASS);
+            var apiClass = tryClass(API_CLASS);
+            var methodHandlerClass = tryClass(METHOD_HANDLER_CLASS);
             var atomicReconstructorInterface = tryClass(ATOMIC_RECONSTRUCTOR_INTERFACE);
             var energyTileInterface = tryClass(ENERGY_TILE_INTERFACE);
 
+            if (apiClass != null) {
+                methodHandlerField = tryField(apiClass, "methodHandler");
+            }
+            if (methodHandlerClass != null && atomicReconstructorInterface != null) {
+                invokeReconstructorMethod = tryMethod(methodHandlerClass, "invokeReconstructor",
+                        atomicReconstructorInterface);
+            }
             if (atomicReconstructorInterface != null) {
                 getLensMethod = tryMethod(atomicReconstructorInterface, "getLens");
             }
@@ -546,9 +572,11 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
                 getRecipeEnergyMethod = tryMethod(laserRecipeClass, "getEnergy");
             }
 
-            LOG.info("AA reflection ready: reconstructor={} laser={} getLens={} getEnergy={} extractEnergy={} getInput={} recipeEnergy={}",
+            LOG.info("AA reflection ready: reconstructor={} laser={} methodHandler={} invoke={} getLens={} getEnergy={} extractEnergy={} getInput={} recipeEnergy={}",
                     reconstructorClass != null,
                     laserRecipeClass != null,
+                    methodHandlerField != null,
+                    invokeReconstructorMethod != null,
                     getLensMethod != null,
                     getEnergyMethod != null,
                     extractEnergyMethod != null,
@@ -562,6 +590,16 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
                 return Class.forName(name);
             } catch (ClassNotFoundException | LinkageError e) {
                 LOG.warn("AA class lookup failed: {} ({})", name, e.getMessage());
+                return null;
+            }
+        }
+
+        @Nullable
+        private static Field tryField(Class<?> declaring, String name) {
+            try {
+                return declaring.getField(name);
+            } catch (NoSuchFieldException | LinkageError e) {
+                LOG.warn("AA field lookup failed: {}#{} ({})", declaring.getName(), name, e.getMessage());
                 return null;
             }
         }
