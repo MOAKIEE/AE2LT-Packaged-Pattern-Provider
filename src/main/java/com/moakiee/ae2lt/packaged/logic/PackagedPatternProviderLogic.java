@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -28,7 +29,9 @@ import com.moakiee.ae2lt.logic.SmartDoublingCompat;
 import com.moakiee.ae2lt.logic.energy.PowerCostUtil;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchExecutor;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
+import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.NeighborMainBlockIndex;
+import com.moakiee.ae2lt.packaged.logic.multiblock.PlanMissRecovery;
 import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
 
 public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic {
@@ -122,7 +125,15 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             var mainPos = getOverloadedHost().getBlockPos().relative(face);
             var plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
             if (plan == null) {
-                continue;
+                boolean shouldBackoff = adapter.shouldBackoffPlanMiss(level, mainPos, pattern, inputs);
+                if (!recoverPlanMissWithAutoReturn(level, mainPos, adapter, shouldBackoff)) {
+                    continue;
+                }
+                updateFaceReturnBackoff(face, gameTick, true);
+                plan = adapter.plan(level, mainPos, pattern, inputs, getActionSource());
+                if (plan == null) {
+                    continue;
+                }
             }
 
             if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
@@ -166,10 +177,17 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
             var plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
             if (plan == null) {
-                if (adapter.shouldBackoffPlanMiss(targetLevel, conn.pos(), pattern, inputs)) {
-                    bumpConnFailure(conn, gameTick);
+                boolean shouldBackoff = adapter.shouldBackoffPlanMiss(targetLevel, conn.pos(), pattern, inputs);
+                if (recoverPlanMissWithAutoReturn(targetLevel, conn.pos(), adapter, shouldBackoff)) {
+                    updateConnReturnBackoff(conn, gameTick, true);
+                    plan = adapter.plan(targetLevel, conn.pos(), pattern, inputs, getActionSource());
                 }
-                continue;
+                if (plan == null) {
+                    if (shouldBackoff) {
+                        bumpConnFailure(conn, gameTick);
+                    }
+                    continue;
+                }
             }
 
             if (DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
@@ -182,6 +200,25 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             return false;
         }
         return false;
+    }
+
+    private boolean recoverPlanMissWithAutoReturn(ServerLevel targetLevel, BlockPos targetPos,
+                                                  MultiblockAdapter adapter, boolean shouldBackoff) {
+        if (shouldBackoff) {
+            return false;
+        }
+        if (getOverloadedHost().getReturnMode() != ReturnMode.AUTO || !getGridNode().isActive()) {
+            return false;
+        }
+
+        var allowedOutputs = getOrBuildOutputFilter();
+        if (allowedOutputs.isEmpty()) {
+            return false;
+        }
+
+        var outputs = adapter.extractOutputs(targetLevel, targetPos, allowedOutputs, getActionSource());
+        insertOutputsToReturnInv(outputs);
+        return PlanMissRecovery.shouldRetryAfterAutoReturn(shouldBackoff, !outputs.isEmpty());
     }
 
     @Override
