@@ -63,6 +63,21 @@ public final class PPItems {
                     chain(AdapterIds.EC_BASIC, AdapterIds.EC_ADVANCED,
                             AdapterIds.EC_ELITE, AdapterIds.EC_ULTIMATE));
 
+    public static final DeferredItem<MultiblockAdapterItem> EC_ENDER_CRAFTER_ADAPTER =
+            registerAdapter("ec_ender_crafter_adapter",
+                    AdapterIds.EC_ENDER,
+                    Set.of(AdapterIds.EC_ENDER));
+
+    public static final DeferredItem<MultiblockAdapterItem> EC_FLUX_CRAFTER_ADAPTER =
+            registerAdapter("ec_flux_crafter_adapter",
+                    AdapterIds.EC_FLUX,
+                    Set.of(AdapterIds.EC_FLUX));
+
+    public static final DeferredItem<MultiblockAdapterItem> EC_COMBINATION_ADAPTER =
+            registerAdapter("ec_combination_adapter",
+                    AdapterIds.EC_COMBINATION,
+                    Set.of(AdapterIds.EC_COMBINATION));
+
     public static final DeferredItem<MultiblockAdapterItem> MA_AWAKENING_ADAPTER =
             registerAdapter("ma_awakening_altar_adapter",
                     AdapterIds.MA_AWAKENING,

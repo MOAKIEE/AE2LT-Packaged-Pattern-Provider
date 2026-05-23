@@ -48,6 +48,12 @@ public final class AdapterIds {
             id("extendedcrafting/table_tier3_adapter");
     public static final ResourceLocation EC_ULTIMATE =
             id("extendedcrafting/table_tier4_adapter");
+    public static final ResourceLocation EC_ENDER =
+            id("extendedcrafting/ender_crafter_adapter");
+    public static final ResourceLocation EC_FLUX =
+            id("extendedcrafting/flux_crafter_adapter");
+    public static final ResourceLocation EC_COMBINATION =
+            id("extendedcrafting/combination_adapter");
     public static final ResourceLocation MA_AWAKENING =
             id("mysticalagriculture/awakening_adapter");
     public static final ResourceLocation MA_INFUSION =
