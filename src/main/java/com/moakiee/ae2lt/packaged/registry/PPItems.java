@@ -37,6 +37,11 @@ public final class PPItems {
                     AdapterIds.ARS_APPARATUS,
                     Set.of(AdapterIds.ARS_APPARATUS));
 
+    public static final DeferredItem<MultiblockAdapterItem> ARS_IMBUEMENT_ADAPTER =
+            registerAdapter("ars_imbuement_adapter",
+                    AdapterIds.ARS_IMBUEMENT,
+                    Set.of(AdapterIds.ARS_IMBUEMENT));
+
     public static final DeferredItem<MultiblockAdapterItem> DE_FUSION_ADAPTER =
             registerAdapter("de_fusion_adapter",
                     AdapterIds.DE_FUSION,

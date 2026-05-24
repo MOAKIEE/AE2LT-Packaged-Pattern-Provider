@@ -25,6 +25,7 @@ public final class PPCreativeTabs {
                         output.accept(PPItems.AA_RECONSTRUCTOR_ADAPTER);
                         output.accept(PPItems.AA_EMPOWERER_ADAPTER);
                         output.accept(PPItems.ARS_APPARATUS_ADAPTER);
+                        output.accept(PPItems.ARS_IMBUEMENT_ADAPTER);
                         output.accept(PPItems.DE_FUSION_ADAPTER);
                         output.accept(PPItems.EC_BASIC_ADAPTER);
                         output.accept(PPItems.EC_ADVANCED_ADAPTER);

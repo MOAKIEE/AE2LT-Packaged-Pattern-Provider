@@ -38,6 +38,8 @@ public final class AdapterIds {
             id("actuallyadditions/empower_adapter");
     public static final ResourceLocation ARS_APPARATUS =
             id("ars_nouveau/enchanting_apparatus_adapter");
+    public static final ResourceLocation ARS_IMBUEMENT =
+            id("ars_nouveau/imbuement_adapter");
     public static final ResourceLocation DE_FUSION =
             id("draconicevolution/fusion_crafting_adapter");
     public static final ResourceLocation EC_BASIC =
