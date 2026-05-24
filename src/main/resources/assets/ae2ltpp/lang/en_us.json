@@ -23,12 +23,7 @@
   "item.ae2ltpp.ma_infusion_altar_adapter": "Infusion Altar Adapter",
   "item.ae2ltpp.occultism_ritual_adapter": "Occultism Ritual Adapter",
   "item.ae2ltpp.occultism_spirit_fire_adapter": "Spirit Fire Adapter",
-  "item.ae2ltpp.mekmm_nucleosynthesizer_adapter": "Large Antiprotonic Nucleosynthesizer Adapter",
-  "item.ae2ltpp.mekmm_chemical_infuser_adapter": "Large Chemical Infuser Adapter",
-  "item.ae2ltpp.mekmm_electrolytic_separator_adapter": "Large Electrolytic Separator Adapter",
-  "item.ae2ltpp.mekmm_rotary_condensentrator_adapter": "Large Rotary Condensentrator Adapter",
-  "item.ae2ltpp.mekmm_solar_neutron_activator_adapter": "Large Solar Neutron Activator Adapter",
-  "item.ae2ltpp.mekmm_pigment_mixer_adapter": "Large Pigment Mixer Adapter",
+  "item.ae2ltpp.mekmm_adapter": "Mekanism More Machines Adapter",
   "tooltip.ae2ltpp.adapter.primary": "Unlocks: %s",
   "tooltip.ae2ltpp.adapter.covers": "Covers %s adapters"
 }

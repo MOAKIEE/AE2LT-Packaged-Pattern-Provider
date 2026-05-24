@@ -24,12 +24,7 @@
   "item.ae2ltpp.ma_infusion_altar_adapter": "灌注祭坛适配器",
   "item.ae2ltpp.occultism_ritual_adapter": "神秘学仪式适配器",
   "item.ae2ltpp.occultism_spirit_fire_adapter": "灵火适配器",
-  "item.ae2ltpp.mekmm_nucleosynthesizer_adapter": "大型反质子核合成器适配器",
-  "item.ae2ltpp.mekmm_chemical_infuser_adapter": "大型化学灌注器适配器",
-  "item.ae2ltpp.mekmm_electrolytic_separator_adapter": "大型电解分离机适配器",
-  "item.ae2ltpp.mekmm_rotary_condensentrator_adapter": "大型旋转冷凝机适配器",
-  "item.ae2ltpp.mekmm_solar_neutron_activator_adapter": "大型太阳能中子活化器适配器",
-  "item.ae2ltpp.mekmm_pigment_mixer_adapter": "大型颜料混合机适配器",
+  "item.ae2ltpp.mekmm_adapter": "Mekanism 大型机器适配器",
   "tooltip.ae2ltpp.adapter.primary": "解锁: %s",
   "tooltip.ae2ltpp.adapter.covers": "向下兼容 %s 种"
 }

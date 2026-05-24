@@ -31,16 +31,16 @@ public final class PPCreativeTabs {
                         output.accept(PPItems.EC_ADVANCED_ADAPTER);
                         output.accept(PPItems.EC_ELITE_ADAPTER);
                         output.accept(PPItems.EC_ULTIMATE_ADAPTER);
+                        output.accept(PPItems.EC_ENDER_CRAFTER_ADAPTER);
+                        output.accept(PPItems.EC_FLUX_CRAFTER_ADAPTER);
+                        output.accept(PPItems.EC_COMBINATION_ADAPTER);
+                        output.accept(PPItems.FA_HEPHAESTUS_FORGE_ADAPTER);
+                        output.accept(PPItems.FA_CLIBANO_ADAPTER);
                         output.accept(PPItems.MA_AWAKENING_ADAPTER);
                         output.accept(PPItems.MA_INFUSION_ADAPTER);
                         output.accept(PPItems.OCCULTISM_RITUAL_ADAPTER);
                         output.accept(PPItems.OCCULTISM_SPIRIT_FIRE_ADAPTER);
-                        output.accept(PPItems.MEKMM_NUCLEOSYNTHESIZER_ADAPTER);
-                        output.accept(PPItems.MEKMM_CHEMICAL_INFUSER_ADAPTER);
-                        output.accept(PPItems.MEKMM_ELECTROLYTIC_SEPARATOR_ADAPTER);
-                        output.accept(PPItems.MEKMM_ROTARY_CONDENSENTRATOR_ADAPTER);
-                        output.accept(PPItems.MEKMM_SOLAR_NEUTRON_ACTIVATOR_ADAPTER);
-                        output.accept(PPItems.MEKMM_PIGMENT_MIXER_ADAPTER);
+                        output.accept(PPItems.MEKMM_ADAPTER);
                     })
                     .build());
 

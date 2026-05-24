@@ -35,12 +35,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeNucleosynthesizerAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeChemicalInfuserAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeElectrolyticSeparatorAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeRotaryCondensentratorAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeSolarNeutronActivatorAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargePigmentMixerAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekanismMoreMachinesAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 import com.moakiee.ae2lt.packaged.registry.PPCreativeTabs;
@@ -80,12 +75,7 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
-            MultiblockAdapterRegistry.register(new LargeNucleosynthesizerAdapter());
-            MultiblockAdapterRegistry.register(new LargeChemicalInfuserAdapter());
-            MultiblockAdapterRegistry.register(new LargeElectrolyticSeparatorAdapter());
-            MultiblockAdapterRegistry.register(new LargeRotaryCondensentratorAdapter());
-            MultiblockAdapterRegistry.register(new LargeSolarNeutronActivatorAdapter());
-            MultiblockAdapterRegistry.register(new LargePigmentMixerAdapter());
+            MultiblockAdapterRegistry.register(new MekanismMoreMachinesAdapter());
 
             var packagedBlock = PPBlocks.PACKAGED_PATTERN_PROVIDER.get();
             var packagedBeType = PPBlockEntities.PACKAGED_PATTERN_PROVIDER.get();

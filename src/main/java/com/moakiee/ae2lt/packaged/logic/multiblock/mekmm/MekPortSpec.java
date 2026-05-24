@@ -1,8 +1,8 @@
 package com.moakiee.ae2lt.packaged.logic.multiblock.mekmm;
 
-record MekPortSpec(int backSteps, int leftSteps, int y, RelativeAccess access) {
+public record MekPortSpec(int backSteps, int leftSteps, int y, RelativeAccess access) {
 
-    enum RelativeAccess {
+    public enum RelativeAccess {
         FRONT,
         BACK,
         LEFT,

@@ -113,35 +113,10 @@ public final class PPItems {
                     AdapterIds.OCCULTISM_SPIRIT_FIRE,
                     Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
 
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_NUCLEOSYNTHESIZER_ADAPTER =
-            registerAdapter("mekmm_nucleosynthesizer_adapter",
-                    AdapterIds.MEKMM_NUCLEOSYNTHESIZER,
-                    Set.of(AdapterIds.MEKMM_NUCLEOSYNTHESIZER));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_CHEMICAL_INFUSER_ADAPTER =
-            registerAdapter("mekmm_chemical_infuser_adapter",
-                    AdapterIds.MEKMM_CHEMICAL_INFUSER,
-                    Set.of(AdapterIds.MEKMM_CHEMICAL_INFUSER));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ELECTROLYTIC_SEPARATOR_ADAPTER =
-            registerAdapter("mekmm_electrolytic_separator_adapter",
-                    AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR,
-                    Set.of(AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ROTARY_CONDENSENTRATOR_ADAPTER =
-            registerAdapter("mekmm_rotary_condensentrator_adapter",
-                    AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR,
-                    Set.of(AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_SOLAR_NEUTRON_ACTIVATOR_ADAPTER =
-            registerAdapter("mekmm_solar_neutron_activator_adapter",
-                    AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR,
-                    Set.of(AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_PIGMENT_MIXER_ADAPTER =
-            registerAdapter("mekmm_pigment_mixer_adapter",
-                    AdapterIds.MEKMM_PIGMENT_MIXER,
-                    Set.of(AdapterIds.MEKMM_PIGMENT_MIXER));
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ADAPTER =
+            registerAdapter("mekmm_adapter",
+                    AdapterIds.MEKMM,
+                    Set.of(AdapterIds.MEKMM));
 
     private PPItems() {
     }
