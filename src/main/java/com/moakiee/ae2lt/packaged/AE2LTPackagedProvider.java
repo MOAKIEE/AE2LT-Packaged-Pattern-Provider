@@ -23,6 +23,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsAtomicReconstructorAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsEmpowererAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauEnchantingApparatusAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauImbuementChamberAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.de.DraconicFusionCraftingAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingCombinationAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingEnderCrafterAdapter;
@@ -32,10 +33,17 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeNucleosynthesizerAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeChemicalInfuserAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeElectrolyticSeparatorAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeRotaryCondensentratorAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeSolarNeutronActivatorAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargePigmentMixerAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 import com.moakiee.ae2lt.packaged.registry.PPCreativeTabs;
 import com.moakiee.ae2lt.packaged.registry.PPItems;
+import com.moakiee.ae2lt.packaged.registry.PPMenuTypes;
 
 @Mod(AE2LTPackagedProvider.MODID)
 public class AE2LTPackagedProvider {
@@ -46,6 +54,7 @@ public class AE2LTPackagedProvider {
         PPItems.ITEMS.register(modEventBus);
         PPBlocks.BLOCKS.register(modEventBus);
         PPBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        PPMenuTypes.MENU_TYPES.register(modEventBus);
         PPCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
@@ -57,6 +66,7 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ActuallyAdditionsAtomicReconstructorAdapter());
             MultiblockAdapterRegistry.register(new ActuallyAdditionsEmpowererAdapter());
             MultiblockAdapterRegistry.register(new ArsNouveauEnchantingApparatusAdapter());
+            MultiblockAdapterRegistry.register(new ArsNouveauImbuementChamberAdapter());
             MultiblockAdapterRegistry.register(new DraconicFusionCraftingAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingTableAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingEnderCrafterAdapter());
@@ -66,6 +76,12 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
+            MultiblockAdapterRegistry.register(new LargeNucleosynthesizerAdapter());
+            MultiblockAdapterRegistry.register(new LargeChemicalInfuserAdapter());
+            MultiblockAdapterRegistry.register(new LargeElectrolyticSeparatorAdapter());
+            MultiblockAdapterRegistry.register(new LargeRotaryCondensentratorAdapter());
+            MultiblockAdapterRegistry.register(new LargeSolarNeutronActivatorAdapter());
+            MultiblockAdapterRegistry.register(new LargePigmentMixerAdapter());
 
             var packagedBlock = PPBlocks.PACKAGED_PATTERN_PROVIDER.get();
             var packagedBeType = PPBlockEntities.PACKAGED_PATTERN_PROVIDER.get();

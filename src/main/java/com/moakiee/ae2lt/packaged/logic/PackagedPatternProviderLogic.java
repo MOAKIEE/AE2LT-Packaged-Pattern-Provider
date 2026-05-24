@@ -309,7 +309,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             var plan = candidate.adapter().planWithBinding(
                     env.level(), env.pos(), pattern, inputs, candidate.handle(), getActionSource());
             if (plan == null
-                    || !DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv())) {
+                    || !DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv()).success()) {
                 cooldownTable.recordFailure(candidate.lane(), gameTick);
                 continue;
             }

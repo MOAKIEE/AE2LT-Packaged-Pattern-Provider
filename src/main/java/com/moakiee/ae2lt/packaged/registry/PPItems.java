@@ -37,6 +37,11 @@ public final class PPItems {
                     AdapterIds.ARS_APPARATUS,
                     Set.of(AdapterIds.ARS_APPARATUS));
 
+    public static final DeferredItem<MultiblockAdapterItem> ARS_IMBUEMENT_ADAPTER =
+            registerAdapter("ars_imbuement_adapter",
+                    AdapterIds.ARS_IMBUEMENT,
+                    Set.of(AdapterIds.ARS_IMBUEMENT));
+
     public static final DeferredItem<MultiblockAdapterItem> DE_FUSION_ADAPTER =
             registerAdapter("de_fusion_adapter",
                     AdapterIds.DE_FUSION,
@@ -97,6 +102,36 @@ public final class PPItems {
             registerAdapter("occultism_spirit_fire_adapter",
                     AdapterIds.OCCULTISM_SPIRIT_FIRE,
                     Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_NUCLEOSYNTHESIZER_ADAPTER =
+            registerAdapter("mekmm_nucleosynthesizer_adapter",
+                    AdapterIds.MEKMM_NUCLEOSYNTHESIZER,
+                    Set.of(AdapterIds.MEKMM_NUCLEOSYNTHESIZER));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_CHEMICAL_INFUSER_ADAPTER =
+            registerAdapter("mekmm_chemical_infuser_adapter",
+                    AdapterIds.MEKMM_CHEMICAL_INFUSER,
+                    Set.of(AdapterIds.MEKMM_CHEMICAL_INFUSER));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ELECTROLYTIC_SEPARATOR_ADAPTER =
+            registerAdapter("mekmm_electrolytic_separator_adapter",
+                    AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR,
+                    Set.of(AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ROTARY_CONDENSENTRATOR_ADAPTER =
+            registerAdapter("mekmm_rotary_condensentrator_adapter",
+                    AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR,
+                    Set.of(AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_SOLAR_NEUTRON_ACTIVATOR_ADAPTER =
+            registerAdapter("mekmm_solar_neutron_activator_adapter",
+                    AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR,
+                    Set.of(AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR));
+
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_PIGMENT_MIXER_ADAPTER =
+            registerAdapter("mekmm_pigment_mixer_adapter",
+                    AdapterIds.MEKMM_PIGMENT_MIXER,
+                    Set.of(AdapterIds.MEKMM_PIGMENT_MIXER));
 
     private PPItems() {
     }

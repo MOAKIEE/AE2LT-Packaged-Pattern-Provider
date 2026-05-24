@@ -38,6 +38,8 @@ public final class AdapterIds {
             id("actuallyadditions/empower_adapter");
     public static final ResourceLocation ARS_APPARATUS =
             id("ars_nouveau/enchanting_apparatus_adapter");
+    public static final ResourceLocation ARS_IMBUEMENT =
+            id("ars_nouveau/imbuement_adapter");
     public static final ResourceLocation DE_FUSION =
             id("draconicevolution/fusion_crafting_adapter");
     public static final ResourceLocation EC_BASIC =
@@ -62,6 +64,18 @@ public final class AdapterIds {
             id("occultism/ritual_adapter");
     public static final ResourceLocation OCCULTISM_SPIRIT_FIRE =
             id("occultism/spirit_fire_adapter");
+    public static final ResourceLocation MEKMM_NUCLEOSYNTHESIZER =
+            id("mekmm/large_nucleosynthesizer_adapter");
+    public static final ResourceLocation MEKMM_CHEMICAL_INFUSER =
+            id("mekmm/large_chemical_infuser_adapter");
+    public static final ResourceLocation MEKMM_ELECTROLYTIC_SEPARATOR =
+            id("mekmm/large_electrolytic_separator_adapter");
+    public static final ResourceLocation MEKMM_ROTARY_CONDENSENTRATOR =
+            id("mekmm/large_rotary_condensentrator_adapter");
+    public static final ResourceLocation MEKMM_SOLAR_NEUTRON_ACTIVATOR =
+            id("mekmm/large_solar_neutron_activator_adapter");
+    public static final ResourceLocation MEKMM_PIGMENT_MIXER =
+            id("mekmm/large_pigment_mixer_adapter");
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(AE2LTPackagedProvider.MODID, path);

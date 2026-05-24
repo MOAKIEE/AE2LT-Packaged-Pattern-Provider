@@ -25,6 +25,7 @@ public final class PPCreativeTabs {
                         output.accept(PPItems.AA_RECONSTRUCTOR_ADAPTER);
                         output.accept(PPItems.AA_EMPOWERER_ADAPTER);
                         output.accept(PPItems.ARS_APPARATUS_ADAPTER);
+                        output.accept(PPItems.ARS_IMBUEMENT_ADAPTER);
                         output.accept(PPItems.DE_FUSION_ADAPTER);
                         output.accept(PPItems.EC_BASIC_ADAPTER);
                         output.accept(PPItems.EC_ADVANCED_ADAPTER);
@@ -34,6 +35,12 @@ public final class PPCreativeTabs {
                         output.accept(PPItems.MA_INFUSION_ADAPTER);
                         output.accept(PPItems.OCCULTISM_RITUAL_ADAPTER);
                         output.accept(PPItems.OCCULTISM_SPIRIT_FIRE_ADAPTER);
+                        output.accept(PPItems.MEKMM_NUCLEOSYNTHESIZER_ADAPTER);
+                        output.accept(PPItems.MEKMM_CHEMICAL_INFUSER_ADAPTER);
+                        output.accept(PPItems.MEKMM_ELECTROLYTIC_SEPARATOR_ADAPTER);
+                        output.accept(PPItems.MEKMM_ROTARY_CONDENSENTRATOR_ADAPTER);
+                        output.accept(PPItems.MEKMM_SOLAR_NEUTRON_ACTIVATOR_ADAPTER);
+                        output.accept(PPItems.MEKMM_PIGMENT_MIXER_ADAPTER);
                     })
                     .build());
 

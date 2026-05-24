@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -14,6 +15,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.helpers.patternprovider.PatternProviderLogic;
+import appeng.menu.ISubMenu;
+import appeng.menu.MenuOpener;
+import appeng.menu.locator.MenuHostLocator;
 import appeng.util.SettingsFrom;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -22,6 +26,7 @@ import com.moakiee.ae2lt.api.pattern.PatternProviderUiProfile;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.packaged.item.MultiblockAdapterItem;
 import com.moakiee.ae2lt.packaged.logic.PackagedPatternProviderLogic;
+import com.moakiee.ae2lt.packaged.menu.PackagedPatternProviderMenu;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 
@@ -224,6 +229,19 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
     @Override
     public AEItemKey getTerminalIcon() {
         return AEItemKey.of(PPBlocks.PACKAGED_PATTERN_PROVIDER.get());
+    }
+
+    @Override
+    public void openMenu(Player player, MenuHostLocator locator) {
+        if (level instanceof ServerLevel) {
+            clearInvalidConnections();
+        }
+        MenuOpener.open(PackagedPatternProviderMenu.TYPE, player, locator);
+    }
+
+    @Override
+    public void returnToMainMenu(Player player, ISubMenu subMenu) {
+        MenuOpener.returnTo(PackagedPatternProviderMenu.TYPE, player, subMenu.getLocator());
     }
 
     @Override
