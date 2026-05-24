@@ -83,6 +83,16 @@ public final class PPItems {
                     AdapterIds.EC_COMBINATION,
                     Set.of(AdapterIds.EC_COMBINATION));
 
+    public static final DeferredItem<MultiblockAdapterItem> FA_HEPHAESTUS_FORGE_ADAPTER =
+            registerAdapter("fa_hephaestus_forge_adapter",
+                    AdapterIds.FA_HEPHAESTUS_FORGE,
+                    Set.of(AdapterIds.FA_HEPHAESTUS_FORGE));
+
+    public static final DeferredItem<MultiblockAdapterItem> FA_CLIBANO_ADAPTER =
+            registerAdapter("fa_clibano_adapter",
+                    AdapterIds.FA_CLIBANO,
+                    Set.of(AdapterIds.FA_CLIBANO));
+
     public static final DeferredItem<MultiblockAdapterItem> MA_AWAKENING_ADAPTER =
             registerAdapter("ma_awakening_altar_adapter",
                     AdapterIds.MA_AWAKENING,

@@ -56,6 +56,10 @@ public final class AdapterIds {
             id("extendedcrafting/flux_crafter_adapter");
     public static final ResourceLocation EC_COMBINATION =
             id("extendedcrafting/combination_adapter");
+    public static final ResourceLocation FA_HEPHAESTUS_FORGE =
+            id("forbidden_arcanus/hephaestus_forge_adapter");
+    public static final ResourceLocation FA_CLIBANO =
+            id("forbidden_arcanus/clibano_adapter");
     public static final ResourceLocation MA_AWAKENING =
             id("mysticalagriculture/awakening_adapter");
     public static final ResourceLocation MA_INFUSION =

@@ -29,6 +29,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingCombinatio
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingEnderCrafterAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingFluxCrafterAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingTableAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.fa.ForbiddenArcanusClibanoAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.fa.ForbiddenArcanusHephaestusForgeAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
@@ -72,6 +74,8 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ExtendedCraftingEnderCrafterAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingFluxCrafterAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingCombinationAdapter());
+            MultiblockAdapterRegistry.register(new ForbiddenArcanusHephaestusForgeAdapter());
+            MultiblockAdapterRegistry.register(new ForbiddenArcanusClibanoAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
             MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
