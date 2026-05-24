@@ -68,6 +68,31 @@ public final class PPItems {
                     chain(AdapterIds.EC_BASIC, AdapterIds.EC_ADVANCED,
                             AdapterIds.EC_ELITE, AdapterIds.EC_ULTIMATE));
 
+    public static final DeferredItem<MultiblockAdapterItem> EC_ENDER_CRAFTER_ADAPTER =
+            registerAdapter("ec_ender_crafter_adapter",
+                    AdapterIds.EC_ENDER,
+                    Set.of(AdapterIds.EC_ENDER));
+
+    public static final DeferredItem<MultiblockAdapterItem> EC_FLUX_CRAFTER_ADAPTER =
+            registerAdapter("ec_flux_crafter_adapter",
+                    AdapterIds.EC_FLUX,
+                    Set.of(AdapterIds.EC_FLUX));
+
+    public static final DeferredItem<MultiblockAdapterItem> EC_COMBINATION_ADAPTER =
+            registerAdapter("ec_combination_adapter",
+                    AdapterIds.EC_COMBINATION,
+                    Set.of(AdapterIds.EC_COMBINATION));
+
+    public static final DeferredItem<MultiblockAdapterItem> FA_HEPHAESTUS_FORGE_ADAPTER =
+            registerAdapter("fa_hephaestus_forge_adapter",
+                    AdapterIds.FA_HEPHAESTUS_FORGE,
+                    Set.of(AdapterIds.FA_HEPHAESTUS_FORGE));
+
+    public static final DeferredItem<MultiblockAdapterItem> FA_CLIBANO_ADAPTER =
+            registerAdapter("fa_clibano_adapter",
+                    AdapterIds.FA_CLIBANO,
+                    Set.of(AdapterIds.FA_CLIBANO));
+
     public static final DeferredItem<MultiblockAdapterItem> MA_AWAKENING_ADAPTER =
             registerAdapter("ma_awakening_altar_adapter",
                     AdapterIds.MA_AWAKENING,
@@ -88,35 +113,10 @@ public final class PPItems {
                     AdapterIds.OCCULTISM_SPIRIT_FIRE,
                     Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
 
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_NUCLEOSYNTHESIZER_ADAPTER =
-            registerAdapter("mekmm_nucleosynthesizer_adapter",
-                    AdapterIds.MEKMM_NUCLEOSYNTHESIZER,
-                    Set.of(AdapterIds.MEKMM_NUCLEOSYNTHESIZER));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_CHEMICAL_INFUSER_ADAPTER =
-            registerAdapter("mekmm_chemical_infuser_adapter",
-                    AdapterIds.MEKMM_CHEMICAL_INFUSER,
-                    Set.of(AdapterIds.MEKMM_CHEMICAL_INFUSER));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ELECTROLYTIC_SEPARATOR_ADAPTER =
-            registerAdapter("mekmm_electrolytic_separator_adapter",
-                    AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR,
-                    Set.of(AdapterIds.MEKMM_ELECTROLYTIC_SEPARATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ROTARY_CONDENSENTRATOR_ADAPTER =
-            registerAdapter("mekmm_rotary_condensentrator_adapter",
-                    AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR,
-                    Set.of(AdapterIds.MEKMM_ROTARY_CONDENSENTRATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_SOLAR_NEUTRON_ACTIVATOR_ADAPTER =
-            registerAdapter("mekmm_solar_neutron_activator_adapter",
-                    AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR,
-                    Set.of(AdapterIds.MEKMM_SOLAR_NEUTRON_ACTIVATOR));
-
-    public static final DeferredItem<MultiblockAdapterItem> MEKMM_PIGMENT_MIXER_ADAPTER =
-            registerAdapter("mekmm_pigment_mixer_adapter",
-                    AdapterIds.MEKMM_PIGMENT_MIXER,
-                    Set.of(AdapterIds.MEKMM_PIGMENT_MIXER));
+    public static final DeferredItem<MultiblockAdapterItem> MEKMM_ADAPTER =
+            registerAdapter("mekmm_adapter",
+                    AdapterIds.MEKMM,
+                    Set.of(AdapterIds.MEKMM));
 
     private PPItems() {
     }

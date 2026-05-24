@@ -23,9 +23,14 @@ public final class DispatchExecutor {
                                                PatternProviderReturnInventory returnInv) {
         var targets = plan.targets();
         if (targets.isEmpty()) {
+            LOG.debug("Dispatch skipped: plan contained no insertion targets.");
             return DispatchResult.failure("Dispatch plan contained no insertion targets.");
         }
 
+        // Two-phase commit: simulate first so caller can fall over to the next
+        // lane candidate cleanly if any target rejects the plan. Logging the
+        // rejection reason is intentional - it makes "why did the provider
+        // skip this lane this tick?" investigable without a debugger.
         for (var target : targets) {
             var simulation = simulateTarget(target, source);
             if (simulation.failure()) {
@@ -55,6 +60,8 @@ public final class DispatchExecutor {
         for (var stack : target.stacks()) {
             long accepted = insertOne(target, stack, Actionable.SIMULATE, source);
             if (accepted < stack.amount()) {
+                LOG.debug("Dispatch simulation rejected at {}: {} x{} (only {} would fit)",
+                        target.pos(), stack.what(), stack.amount(), accepted);
                 return DispatchResult.failure(
                         "Target at " + target.pos() + " rejected "
                                 + stack.what() + " x" + stack.amount() + " during simulation.");

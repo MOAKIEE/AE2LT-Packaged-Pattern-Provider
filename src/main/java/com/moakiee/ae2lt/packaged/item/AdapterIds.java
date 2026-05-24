@@ -50,6 +50,16 @@ public final class AdapterIds {
             id("extendedcrafting/table_tier3_adapter");
     public static final ResourceLocation EC_ULTIMATE =
             id("extendedcrafting/table_tier4_adapter");
+    public static final ResourceLocation EC_ENDER =
+            id("extendedcrafting/ender_crafter_adapter");
+    public static final ResourceLocation EC_FLUX =
+            id("extendedcrafting/flux_crafter_adapter");
+    public static final ResourceLocation EC_COMBINATION =
+            id("extendedcrafting/combination_adapter");
+    public static final ResourceLocation FA_HEPHAESTUS_FORGE =
+            id("forbidden_arcanus/hephaestus_forge_adapter");
+    public static final ResourceLocation FA_CLIBANO =
+            id("forbidden_arcanus/clibano_adapter");
     public static final ResourceLocation MA_AWAKENING =
             id("mysticalagriculture/awakening_adapter");
     public static final ResourceLocation MA_INFUSION =
@@ -58,18 +68,15 @@ public final class AdapterIds {
             id("occultism/ritual_adapter");
     public static final ResourceLocation OCCULTISM_SPIRIT_FIRE =
             id("occultism/spirit_fire_adapter");
-    public static final ResourceLocation MEKMM_NUCLEOSYNTHESIZER =
-            id("mekmm/large_nucleosynthesizer_adapter");
-    public static final ResourceLocation MEKMM_CHEMICAL_INFUSER =
-            id("mekmm/large_chemical_infuser_adapter");
-    public static final ResourceLocation MEKMM_ELECTROLYTIC_SEPARATOR =
-            id("mekmm/large_electrolytic_separator_adapter");
-    public static final ResourceLocation MEKMM_ROTARY_CONDENSENTRATOR =
-            id("mekmm/large_rotary_condensentrator_adapter");
-    public static final ResourceLocation MEKMM_SOLAR_NEUTRON_ACTIVATOR =
-            id("mekmm/large_solar_neutron_activator_adapter");
-    public static final ResourceLocation MEKMM_PIGMENT_MIXER =
-            id("mekmm/large_pigment_mixer_adapter");
+    /**
+     * Single key card covering every Mekanism: More Machines large multiblock
+     * (chemical infuser, electrolytic separator, antiprotonic nucleosynthesizer,
+     * rotary condensentrator, solar neutron activator, pigment mixer). The
+     * generic {@code MekanismMoreMachinesAdapter} dispatches between them at
+     * runtime via {@code MekmmMachines}.
+     */
+    public static final ResourceLocation MEKMM =
+            id("mekmm/large_machine_adapter");
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(AE2LTPackagedProvider.MODID, path);

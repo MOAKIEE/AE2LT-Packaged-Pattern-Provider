@@ -1,0 +1,16 @@
+{
+  "neoforge:conditions": [
+    { "type": "neoforge:mod_loaded", "modid": "extendedcrafting" }
+  ],
+  "type": "extendedcrafting:combination",
+  "input": { "item": "minecraft:cobblestone" },
+  "ingredients": [
+    { "item": "minecraft:diamond" },
+    { "item": "minecraft:diamond" },
+    { "item": "minecraft:gold_ingot" },
+    { "item": "minecraft:redstone" }
+  ],
+  "result": { "id": "minecraft:emerald_block", "count": 1 },
+  "power_cost": 5000,
+  "power_rate": 500
+}

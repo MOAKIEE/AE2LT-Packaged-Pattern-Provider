@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
@@ -84,4 +85,16 @@ public interface MultiblockAdapter {
     List<GenericStack> extractOutputs(ServerLevel level, BlockPos mainPos,
                                       AllowedOutputFilter filter,
                                       IActionSource source);
+
+    /**
+     * Adapter-owned auto-return filter. The default is permissive: once an
+     * adapter has validated the correct output position/slot, anything there
+     * is considered a legitimate machine result. Adapters that read from a
+     * shared inventory or broad dropped-item area can override this to keep a
+     * pattern-level allow-list.
+     */
+    default boolean allowsAutoReturn(ServerLevel level, BlockPos mainPos,
+                                     AllowedOutputFilter filter, AEKey key) {
+        return true;
+    }
 }

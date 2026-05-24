@@ -46,4 +46,18 @@ public interface VirtualCraftingAdapter extends MultiblockAdapter {
     default ResourceLocation flushSoundId() {
         return null;
     }
+
+    /**
+     * Optional machine-side effect to run when the virtual batch actually
+     * surfaces in the provider return inventory.
+     *
+     * <p>This is intentionally tied to flush time rather than push time: a
+     * virtual push only admits work into the accumulator, while flush is when
+     * the player sees products arrive. Adapters can use this for visual-only
+     * machine feedback, e.g. firing a laser once without placing dropped
+     * inputs in the world.
+     */
+    default void onVirtualBatchFlush(ServerLevel level, BlockPos mainPos,
+                                     Object handle, IActionSource source) {
+    }
 }

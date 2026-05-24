@@ -9,11 +9,11 @@ AE2LT Packaged Pattern Provider is an AE2 Lightning Tech addon for Minecraft 1.2
 - Minecraft: 1.21.1
 - Java: 21
 - NeoForge: 21.1.x
-- Current addon / AE2LT tested NeoForge: 21.1.219
+- Current addon / AE2LT tested NeoForge: 21.1.230
 - AE2 official 1.21.1 branch observed NeoForge: 21.1.169
 - Gradle Wrapper: 8.8
 
-Current local verification observed a NeoForge patch-version difference: this addon and AE2 Lightning Tech currently build with 21.1.219, while the Applied Energistics 2 `1.21.1` branch currently declares 21.1.169. That difference did not block local compilation or tests, but it should not be treated as guaranteed runtime compatibility. If dependency resolution or runtime issues appear, align the NeoForge patch version first.
+Current local verification observed a NeoForge patch-version difference: this addon currently builds with 21.1.230, while the Applied Energistics 2 `1.21.1` branch previously declared 21.1.169. That difference did not block local compilation or tests, but it should not be treated as guaranteed runtime compatibility. If dependency resolution or runtime issues appear, align the NeoForge patch version first.
 
 ## Required Dependencies
 
@@ -138,7 +138,7 @@ These entries reflect source code present in the repository, not a blanket state
 ## How to Add a New Multiblock Adapter
 
 1. Add a new adapter package under `logic/multiblock`.
-2. Implement the existing `MultiblockAdapter` interface.
+2. Implement the existing `MultiblockAdapter` interface, returning a binding result that identifies whether the target should run virtually or through real dispatch.
 3. Register the adapter during common setup or registry initialization.
 4. Use reflection or equivalent safe detection for optional mod access.
 5. Add matching and failure-path tests.
@@ -149,7 +149,7 @@ These entries reflect source code present in the repository, not a blanket state
 - The project still depends on a local or environment-provided AE2LT jar unless AE2 Lightning Tech publishes a stable Maven coordinate for this target.
 - The AE2 official `1.21.1` branch and the addon / AE2LT projects currently observe different NeoForge patch versions.
 - `PackagedPatternProviderLogic` dispatch fallback and registry hardening are in place, but test coverage is still focused on targeted regression paths rather than broad integration scenarios.
-- Optional-mod reflection handling is only partially unified so far; `InfusionAltarAdapter` is the current `ReflectionSupport` pilot, while the remaining optional-mod adapters still use their existing guarded reflection helpers.
+- Optional-mod reflection handling is only partially unified so far; `InfusionAltarAdapter` is the current `ReflectionSupport` pilot, while the remaining optional-mod adapters still use their existing guarded reflection helpers. New hot-path adapters should prefer `MethodHandle`-based helpers where it keeps optional-mod failure handling simple.
 - Full CI success depends on being able to build or otherwise provide the AE2LT jar first.
 
 ## Troubleshooting
@@ -165,8 +165,8 @@ These entries reflect source code present in the repository, not a blanket state
 Local phase-1 verification produced the following baseline:
 
 - Applied Energistics 2: `1.21.1` branch built successfully, observed NeoForge `21.1.169`
-- AE2 Lightning Tech: `main` branch built successfully, observed NeoForge `21.1.219`
-- AE2LT Packaged Pattern Provider: built successfully, observed NeoForge `21.1.219`
+- AE2 Lightning Tech: `main` branch built successfully
+- AE2LT Packaged Pattern Provider: built successfully, observed NeoForge `21.1.230`
 
 That version difference did not block local compilation or tests, but runtime compatibility should still be verified. If runtime issues appear later, prioritize:
 

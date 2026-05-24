@@ -181,7 +181,7 @@ public final class ActuallyAdditionsEmpowererAdapter implements MultiblockAdapte
         }
 
         var key = AEItemKey.of(stack);
-        if (!filter.matches(key)) {
+        if (!allowsAutoReturn(level, mainPos, filter, key)) {
             return List.of();
         }
 

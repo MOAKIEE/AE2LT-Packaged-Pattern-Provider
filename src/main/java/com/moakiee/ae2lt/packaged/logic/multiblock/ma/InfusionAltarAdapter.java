@@ -193,7 +193,7 @@ public final class InfusionAltarAdapter implements MultiblockAdapter {
         }
 
         var key = AEItemKey.of(stack);
-        if (!filter.matches(key)) {
+        if (!allowsAutoReturn(level, mainPos, filter, key)) {
             return List.of();
         }
 
