@@ -34,7 +34,6 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.fa.ForbiddenArcanusHephaestus
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekanismMoreMachinesAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
@@ -72,7 +71,6 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ForbiddenArcanusHephaestusForgeAdapter());
             MultiblockAdapterRegistry.register(new ForbiddenArcanusClibanoAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
-            MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
             MultiblockAdapterRegistry.register(new MekanismMoreMachinesAdapter());

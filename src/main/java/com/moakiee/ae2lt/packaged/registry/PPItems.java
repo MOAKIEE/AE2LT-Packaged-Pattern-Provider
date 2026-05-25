@@ -108,11 +108,6 @@ public final class PPItems {
                     AdapterIds.OCCULTISM_RITUAL,
                     Set.of(AdapterIds.OCCULTISM_RITUAL));
 
-    public static final DeferredItem<MultiblockAdapterItem> OCCULTISM_SPIRIT_FIRE_ADAPTER =
-            registerAdapter("occultism_spirit_fire_adapter",
-                    AdapterIds.OCCULTISM_SPIRIT_FIRE,
-                    Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
-
     public static final DeferredItem<MultiblockAdapterItem> MEKMM_ADAPTER =
             registerAdapter("mekmm_adapter",
                     AdapterIds.MEKMM,

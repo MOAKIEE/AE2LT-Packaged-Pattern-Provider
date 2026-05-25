@@ -411,8 +411,8 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
                 continue;
             }
-            // BE may be null (plain block adapters like spirit_fire are virtual,
-            // so they get filtered below); pass through to find regardless.
+            // BE may be null for block-only targets; pass through to find
+            // regardless so each adapter can decide whether it applies.
             var be = targetLevel.getBlockEntity(conn.pos());
             var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
             if (adapter == null || adapter instanceof VirtualCraftingAdapter) {
@@ -465,8 +465,8 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
                 if (targetLevel == null || !targetLevel.isLoaded(conn.pos())) {
                     continue;
                 }
-                // BE may be null for non-tile blocks (e.g. spirit_fire);
-                // each adapter's recognizesMain must filter for itself.
+                // BE may be null for non-tile blocks; each adapter's
+                // recognizesMain must filter for itself.
                 var be = targetLevel.getBlockEntity(conn.pos());
                 var adapter = MultiblockAdapterRegistry.find(targetLevel, conn.pos(), be);
                 if (adapter == null) {
@@ -501,9 +501,9 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             if (!providerLevel.isLoaded(pos)) {
                 return null;
             }
-            // BE may be null for plain blocks (e.g. spirit_fire). Defer the
-            // "is this still my multiblock?" check to recognizesMain, which
-            // each adapter implements with the right BE / BlockState mix.
+            // BE may be null for plain blocks. Defer the "is this still my
+            // multiblock?" check to recognizesMain, which each adapter
+            // implements with the right BE / BlockState mix.
             var be = providerLevel.getBlockEntity(pos);
             if (!candidate.adapter().recognizesMain(providerLevel, pos, be)) {
                 return null;

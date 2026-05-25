@@ -26,8 +26,7 @@ public interface MultiblockAdapter {
     /**
      * Cheap check: is this position a main block handled by this adapter?
      *
-     * <p>{@code be} can be {@code null} when the target block is a "plain" block
-     * (e.g. Occultism's spirit_fire is a {@code BaseFireBlock} with no BE).
+     * <p>{@code be} can be {@code null} when the target block has no block entity.
      * Adapters that require a BE must guard with {@code be != null} explicitly.
      */
     boolean recognizesMain(ServerLevel level, BlockPos pos, @Nullable BlockEntity be);

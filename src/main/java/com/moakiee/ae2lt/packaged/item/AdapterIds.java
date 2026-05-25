@@ -66,8 +66,6 @@ public final class AdapterIds {
             id("mysticalagriculture/infusion_adapter");
     public static final ResourceLocation OCCULTISM_RITUAL =
             id("occultism/ritual_adapter");
-    public static final ResourceLocation OCCULTISM_SPIRIT_FIRE =
-            id("occultism/spirit_fire_adapter");
     /**
      * Single key card covering every Mekanism: More Machines large multiblock
      * (chemical infuser, electrolytic separator, antiprotonic nucleosynthesizer,

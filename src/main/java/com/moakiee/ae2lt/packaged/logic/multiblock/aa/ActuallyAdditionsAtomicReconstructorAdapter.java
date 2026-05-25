@@ -160,8 +160,7 @@ public final class ActuallyAdditionsAtomicReconstructorAdapter implements Virtua
             return null;
         }
 
-        // Parallel batch accounting — see OccultismSpiritFireAdapter for the
-        // same scheme. One push covers the whole batch encoded into the
+        // Parallel batch accounting: one push covers the whole batch encoded into the
         // pattern, so we derive the expected total output from input ratio
         // and reject the recipe only when the pattern's declared output
         // doesn't line up.
