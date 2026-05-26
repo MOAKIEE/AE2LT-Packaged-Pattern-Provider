@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -200,33 +201,40 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
 
         int catalystCount = DEReflection.getCatalystCount(recipe);
         if (catalystCount <= 0) catalystCount = 1;
+        final int requiredCatalystCount = catalystCount;
 
-        var catalystUnits = new ArrayList<PlannedUnit>();
-        var ingredientUnits = new ArrayList<PlannedUnit>();
+        if (units.size() != requiredCatalystCount + fusionIngredients.size()) return null;
+
+        var unitKeys = new ArrayList<AEItemKey>(units.size());
         for (var unit : units) {
-            if (catalystUnits.size() < catalystCount && catalyst.test(unit.stack())) {
-                catalystUnits.add(unit);
-            } else {
-                ingredientUnits.add(unit);
-            }
+            unitKeys.add(unit.key());
         }
-        if (catalystUnits.size() != catalystCount) return null;
-        if (ingredientUnits.size() != fusionIngredients.size()) return null;
 
-        var assignments = matchIngredients(
-                fusionIngredients, ingredientUnits, injectors, recipeTierIndex);
+        var ingredientMatchers = new ArrayList<Predicate<AEItemKey>>(fusionIngredients.size());
+        for (var fi : fusionIngredients) {
+            ingredientMatchers.add(key -> fi.ingredient().test(key.toStack(1)));
+        }
+
+        var inputMatch = DraconicFusionInputMatcher.match(
+                unitKeys,
+                requiredCatalystCount,
+                key -> catalyst.test(key.toStack(requiredCatalystCount)),
+                ingredientMatchers);
+        if (inputMatch == null) return null;
+
+        var assignments = assignIngredientsToInjectors(
+                inputMatch.ingredients(), injectors, recipeTierIndex);
         if (assignments == null) return null;
 
-        var catalystKey = catalystUnits.getFirst().key();
-        var catalystPlanned = new PlannedUnit(catalystKey, catalystCount);
+        var catalystKey = inputMatch.catalystKey();
+        var catalystPlanned = new PlannedUnit(catalystKey, requiredCatalystCount);
 
         return new RecipeMatch(catalystPlanned, assignments, resultItem);
     }
 
     @Nullable
-    private List<InjectorAssignment> matchIngredients(
-            List<IngredientInfo> fusionIngredients,
-            List<PlannedUnit> ingredientUnits,
+    private List<InjectorAssignment> assignIngredientsToInjectors(
+            List<AEItemKey> ingredientKeys,
             List<InjectorInfo> injectors,
             int recipeTierIndex) {
         // Filter injectors: must be empty and meet tier requirement
@@ -236,25 +244,13 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
                 available.add(inj);
             }
         }
-        if (available.size() < fusionIngredients.size()) return null;
+        if (available.size() < ingredientKeys.size()) return null;
 
-        // Greedy match: for each recipe ingredient, find a matching unit
-        var usedUnits = new boolean[ingredientUnits.size()];
-        var assignments = new ArrayList<InjectorAssignment>(fusionIngredients.size());
-
-        for (int i = 0; i < fusionIngredients.size(); i++) {
-            var fi = fusionIngredients.get(i);
-            boolean matched = false;
-            for (int u = 0; u < ingredientUnits.size(); u++) {
-                if (usedUnits[u]) continue;
-                if (fi.ingredient().test(ingredientUnits.get(u).stack())) {
-                    usedUnits[u] = true;
-                    assignments.add(new InjectorAssignment(available.get(i).pos(), ingredientUnits.get(u)));
-                    matched = true;
-                    break;
-                }
-            }
-            if (!matched) return null;
+        var assignments = new ArrayList<InjectorAssignment>(ingredientKeys.size());
+        for (int i = 0; i < ingredientKeys.size(); i++) {
+            assignments.add(new InjectorAssignment(
+                    available.get(i).pos(),
+                    new PlannedUnit(ingredientKeys.get(i), 1)));
         }
         return assignments;
     }
