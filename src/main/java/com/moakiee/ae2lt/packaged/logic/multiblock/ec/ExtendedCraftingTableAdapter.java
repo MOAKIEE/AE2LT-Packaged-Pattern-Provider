@@ -115,7 +115,11 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         if (spec == null) {
             return null;
         }
-        return new BindingResult(spec, BindingMode.VIRTUAL);
+        var handle = searchHandle(level, pattern, spec);
+        if (handle == null) {
+            return null;
+        }
+        return new BindingResult(handle, BindingMode.VIRTUAL);
     }
 
     @Override
@@ -141,9 +145,10 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
     public VirtualCraftingResult planVirtualWithBinding(ServerLevel level, BlockPos mainPos,
                                                         IPatternDetails pattern, KeyCounter[] inputs,
                                                         Object handle, IActionSource source) {
-        if (!(handle instanceof TableSpec spec)) {
+        if (!(handle instanceof EcBindHandle bind)) {
             return null;
         }
+        var spec = bind.spec();
 
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be) || !spec.matches(be.getBlockState())) {
@@ -155,36 +160,71 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             return null;
         }
 
-        // New algorithm (user-specified):
-        //   1. Read pattern.output -> patternOutAmount, patternOutKey.
-        //   2. For each candidate recipe:
-        //        K = patternOutAmount / recipe.result.count (must divide)
-        //        Then for each non-empty ingredient, find a provided item
-        //        whose item id matches the ingredient (NBT-loose) and which
-        //        has at least K available; deduct K.
-        //        After all ingredients consumed, provided must be exactly
-        //        empty (no swallowing).
-        //   3. The matched recipe + per-craft layout + K drive the output.
-        var match = resolveBatchMatch(level, pattern, inputs, spec);
-        if (match == null) {
+        var ingredients = ingredients(bind.recipe());
+        if (ingredients == null) {
+            return null;
+        }
+        int nonEmpty = countNonEmpty(ingredients);
+        if (nonEmpty == 0 || nonEmpty > spec.slots()) {
             return null;
         }
 
-        var planned = layoutGridFromIngredients(match.recipe(), match.perCraftStacks(), spec);
+        var available = new LinkedHashMap<Item, Long>();
+        var keysByItem = new HashMap<Item, AEItemKey>();
+        for (var counter : inputs) {
+            for (var entry : counter) {
+                if (!(entry.getKey() instanceof AEItemKey itemKey)) {
+                    return null;
+                }
+                long amount = entry.getLongValue();
+                if (amount <= 0) {
+                    continue;
+                }
+                var item = itemKey.getItem();
+                available.merge(item, amount, Long::sum);
+                keysByItem.putIfAbsent(item, itemKey);
+            }
+        }
+        if (available.isEmpty()) {
+            return null;
+        }
+
+        // Two-track ingredient assignment:
+        //   - Plain pattern (overload=false): bind already strictly matched
+        //     pattern.getInputs() against ingredient.test (NBT-strict), and
+        //     AE2 guarantees the KeyCounter delivers exactly those pattern
+        //     keys, so we deduct K per ingredient by item id alone and use
+        //     the KeyCounter's actual key as the grid stack — no per-push
+        //     ingredient.test required.
+        //   - Overloaded ID_ONLY pattern (overload=true): bind matched only
+        //     by item id; the runtime KeyCounter may carry a different NBT
+        //     variant, so we re-run ingredient.test(kc.toStack(1)) per
+        //     dispatch as the final anti-dup gate.
+        // Both paths feed the grid the exact KeyCounter key (with its real
+        // DataComponents/NBT) — never a default-instance fallback.
+        int k = bind.craftRatio();
+        var perCraftStacks = bind.overload()
+                ? assignIngredientsStrict(ingredients, available, keysByItem, k)
+                : assignIngredientsTrusted(ingredients, available, keysByItem, k);
+        if (perCraftStacks == null || anyLeftover(available)) {
+            return null;
+        }
+
+        var planned = layoutGridFromIngredients(bind.recipe(), perCraftStacks, spec);
         if (planned == null) {
             return null;
         }
 
         var input = EcReflection.createTableInput(spec.gridSize(), stacksForPlan(spec.slots(), planned), spec.tier());
-        if (input == null || !recipeMatches(match.recipe(), input, level)) {
+        if (input == null || !recipeMatches(bind.recipe(), input, level)) {
             return null;
         }
 
-        var result = assemble(match.recipe(), input, level);
+        var result = assemble(bind.recipe(), input, level);
         if (result == null || result.isEmpty()) {
             return null;
         }
-        long totalCount = (long) match.craftRatio() * result.getCount();
+        long totalCount = (long) k * result.getCount();
         if (totalCount <= 0 || totalCount > Integer.MAX_VALUE) {
             return null;
         }
@@ -192,12 +232,12 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             return null;
         }
 
-        var remaining = remainingItems(match.recipe(), input);
+        var remaining = remainingItems(bind.recipe(), input);
         if (remaining == null) {
             return null;
         }
 
-        var outputs = virtualOutputs(result, remaining, match.craftRatio());
+        var outputs = virtualOutputs(result, remaining, k);
         if (outputs.isEmpty()) {
             return null;
         }
@@ -262,41 +302,37 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
     }
 
     /**
-     * Resolves the batch multiplier K and the matching recipe by:
+     * One-shot recipe + K search executed at bind time. Walks every EC
+     * table recipe whose result item id matches the pattern's primary
+     * output, derives the batch multiplier {@code K = patternOutAmount /
+     * resultCount}, and verifies each non-empty ingredient can be satisfied
+     * by the pattern's declared inputs. The matched (recipe, K) plus the
+     * pattern's output match mode are cached on the binding so plan-time
+     * dispatch can skip the full recipe-table scan.
      *
-     * <ol>
-     *   <li>Reading the pattern's single primary output amount.</li>
-     *   <li>Iterating every EC table recipe whose result item id equals the
-     *       pattern's output item id, and checking
-     *       {@code K = patternOutAmount / recipe.result.count} divides
-     *       cleanly.</li>
-     *   <li>Aggregating the {@link KeyCounter}-provided inputs by item id
-     *       (NBT-loose) and trying to satisfy each non-empty ingredient by
-     *       consuming exactly K units from one of the provided items.</li>
-     *   <li>Confirming nothing is left over (no swallowing) and that the
-     *       pattern output mode (STRICT vs ID_ONLY) is honored.</li>
-     * </ol>
+     * <p>Strictness is split by the pattern's output match mode:
+     * <ul>
+     *   <li>{@link MatchMode#STRICT} (default for vanilla patterns):
+     *       ingredient.test must accept the pattern's declared input stack
+     *       with its DataComponents/NBT intact, and the pattern output key
+     *       must equal {@code AEItemKey.of(recipe.result)} exactly. This
+     *       locks in the precise recipe variant so plan time can trust the
+     *       KeyCounter without re-running ingredient.test.</li>
+     *   <li>{@link MatchMode#ID_ONLY} (AE2LT overload opt-in): bind only
+     *       requires the ingredient to accept some item-id-equal variant
+     *       (via {@link Ingredient#getItems()}). The runtime KeyCounter may
+     *       carry a different NBT variant, so plan time falls back to a
+     *       per-dispatch strict {@code ingredient.test} against the actual
+     *       KeyCounter stack as the final anti-dup gate.</li>
+     * </ul>
      *
-     * <p>"NBT-loose" means an ingredient {@code ing} matches a provided
-     * {@link AEItemKey} {@code key} when either {@code ing.test(key.toStack(1))}
-     * succeeds, or any of {@code ing.getItems()} carries the same vanilla
-     * {@link Item} as {@code key}. Pattern inputs may carry NBT/component
-     * variants that the ingredient predicate would otherwise reject — by
-     * relaxing to item-id equality we cover those cases.
-     *
-     * <p>The grid layout returned alongside the recipe uses one
-     * representative stack per ingredient (preferring the provided key when
-     * it strictly passes the ingredient, otherwise falling back to the
-     * item's default instance) so that
-     * {@link Recipe#matches}/{@link Recipe#assemble} run cleanly.
+     * <p>Anti-duplication invariant: neither path ever falls back to
+     * {@code item.getDefaultInstance()} or any other representative stack
+     * for the grid &mdash; the per-craft grid stack is always the exact
+     * {@link KeyCounter} key (with its DataComponents/NBT) at plan time.
      */
     @Nullable
-    private static BatchMatch resolveBatchMatch(ServerLevel level, IPatternDetails pattern,
-                                                KeyCounter[] inputs, TableSpec spec) {
-        if (!hasSingleItemOutput(pattern)) {
-            return null;
-        }
-
+    private static EcBindHandle searchHandle(ServerLevel level, IPatternDetails pattern, TableSpec spec) {
         var patternOut = pattern.getOutputs().getFirst();
         if (!(patternOut.what() instanceof AEItemKey patternOutKey) || patternOut.amount() <= 0) {
             return null;
@@ -305,25 +341,28 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
 
         var provided = new LinkedHashMap<Item, Long>();
         var keysByItem = new HashMap<Item, AEItemKey>();
-        for (var counter : inputs) {
-            for (var entry : counter) {
-                if (!(entry.getKey() instanceof AEItemKey itemKey)) {
-                    return null;
-                }
-                long amount = entry.getLongValue();
-                if (amount <= 0) {
-                    continue;
-                }
-                var item = itemKey.getItem();
-                provided.merge(item, amount, Long::sum);
-                keysByItem.putIfAbsent(item, itemKey);
+        for (var input : pattern.getInputs()) {
+            var possible = input.getPossibleInputs();
+            if (possible.length == 0 || !(possible[0].what() instanceof AEItemKey itemKey)) {
+                return null;
             }
+            long stackAmount = Math.max(1L, possible[0].amount());
+            long multiplier = Math.max(1L, input.getMultiplier());
+            long amount;
+            try {
+                amount = Math.multiplyExact(stackAmount, multiplier);
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+            var item = itemKey.getItem();
+            provided.merge(item, amount, Long::sum);
+            keysByItem.putIfAbsent(item, itemKey);
         }
         if (provided.isEmpty()) {
             return null;
         }
 
-        var outputMode = outputMode(pattern, 0);
+        boolean overload = outputMode(pattern, 0) == MatchMode.ID_ONLY;
 
         for (var holder : recipes(level)) {
             var recipe = holder.value();
@@ -334,8 +373,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             if (resultPreview.getItem() != patternOutKey.getItem()) {
                 continue;
             }
-            if (outputMode == MatchMode.STRICT
-                    && !patternOutKey.equals(AEItemKey.of(resultPreview))) {
+            if (!overload && !patternOutKey.equals(AEItemKey.of(resultPreview))) {
                 continue;
             }
 
@@ -352,113 +390,196 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             if (ingredients == null) {
                 continue;
             }
-            int ingredientCount = 0;
-            for (var ing : ingredients) {
-                if (!ing.isEmpty()) {
-                    ingredientCount++;
-                }
-            }
-            if (ingredientCount == 0 || ingredientCount > spec.slots()) {
+            int nonEmpty = countNonEmpty(ingredients);
+            if (nonEmpty == 0 || nonEmpty > spec.slots()) {
                 continue;
             }
 
             var working = new LinkedHashMap<>(provided);
-            var perCraftStacks = new ArrayList<ItemStack>(ingredientCount);
-            boolean ok = true;
-            for (var ing : ingredients) {
-                if (ing.isEmpty()) {
-                    continue;
-                }
-                ItemStack chosenGridStack = pickStackForIngredient(ing, working, keysByItem, k);
-                if (chosenGridStack == null) {
-                    ok = false;
-                    break;
-                }
-                perCraftStacks.add(chosenGridStack);
-            }
-            if (!ok) {
+            boolean ok = overload
+                    ? consumeIngredientsByItemId(ingredients, working, k)
+                    : consumeIngredientsStrict(ingredients, working, keysByItem, k);
+            if (!ok || anyLeftover(working)) {
                 continue;
             }
 
-            boolean leftover = false;
-            for (var v : working.values()) {
-                if (v > 0) {
-                    leftover = true;
-                    break;
-                }
-            }
-            if (leftover) {
-                continue;
-            }
-
-            return new BatchMatch((int) k, recipe, List.copyOf(perCraftStacks));
+            return new EcBindHandle(spec, recipe, (int) k, overload);
         }
         return null;
     }
 
     /**
-     * Picks one item from the provided pool that satisfies the ingredient.
-     *
-     * <p>Order of preference:
-     * <ol>
-     *   <li>Strict {@code ing.test(providedKey.toStack(1))} — preserves the
-     *       NBT/components of the pattern-provided key on the grid.</li>
-     *   <li>NBT-loose item-id match against {@code ing.getItems()} — falls
-     *       back to the item's default instance so that ingredients which
-     *       check components (e.g. an enchanted-book ingredient) still
-     *       accept a bare provided variant.</li>
-     * </ol>
-     *
-     * <p>Deducts {@code k} from the chosen item's pool on success; returns
-     * {@code null} when no provided item meets the criteria.
+     * Bind-time consumption used in STRICT mode: each ingredient must be
+     * accepted by {@code ing.test(providedKey.toStack(1))} on the pattern's
+     * declared NBT-carrying key. Deducts K from the chosen item pool.
      */
-    @Nullable
-    private static ItemStack pickStackForIngredient(Ingredient ing,
+    private static boolean consumeIngredientsStrict(NonNullList<Ingredient> ingredients,
                                                     LinkedHashMap<Item, Long> working,
                                                     Map<Item, AEItemKey> keysByItem,
                                                     long k) {
-        ItemStack strictChoice = null;
-        Item strictItem = null;
-        ItemStack looseChoice = null;
-        Item looseItem = null;
-        for (var entry : working.entrySet()) {
-            if (entry.getValue() < k) {
+        for (var ing : ingredients) {
+            if (ing.isEmpty()) {
                 continue;
             }
-            var item = entry.getKey();
-            var key = keysByItem.get(item);
-            if (key == null) {
-                continue;
-            }
-            var strictStack = key.toStack(1);
-            if (ing.test(strictStack)) {
-                strictChoice = strictStack;
-                strictItem = item;
+            boolean found = false;
+            for (var it = working.entrySet().iterator(); it.hasNext(); ) {
+                var entry = it.next();
+                if (entry.getValue() < k) {
+                    continue;
+                }
+                var key = keysByItem.get(entry.getKey());
+                if (key == null || !ing.test(key.toStack(1))) {
+                    continue;
+                }
+                long remaining = entry.getValue() - k;
+                if (remaining == 0) {
+                    it.remove();
+                } else {
+                    entry.setValue(remaining);
+                }
+                found = true;
                 break;
             }
-            if (looseChoice == null && ingredientAcceptsItemId(ing, item)) {
-                looseChoice = item.getDefaultInstance();
-                looseItem = item;
+            if (!found) {
+                return false;
             }
         }
-        ItemStack chosenStack;
-        Item chosenItem;
-        if (strictChoice != null) {
-            chosenStack = strictChoice;
-            chosenItem = strictItem;
-        } else if (looseChoice != null) {
-            chosenStack = looseChoice;
-            chosenItem = looseItem;
-        } else {
-            return null;
+        return true;
+    }
+
+    /**
+     * Bind-time consumption used in ID_ONLY mode: each ingredient must
+     * accept some item-id-equal variant via {@link Ingredient#getItems()}.
+     * The actual NBT compatibility is rechecked at plan time against the
+     * runtime KeyCounter (see {@link #assignIngredientsStrict}).
+     */
+    private static boolean consumeIngredientsByItemId(NonNullList<Ingredient> ingredients,
+                                                      LinkedHashMap<Item, Long> working,
+                                                      long k) {
+        for (var ing : ingredients) {
+            if (ing.isEmpty()) {
+                continue;
+            }
+            boolean found = false;
+            for (var it = working.entrySet().iterator(); it.hasNext(); ) {
+                var entry = it.next();
+                if (entry.getValue() < k) {
+                    continue;
+                }
+                if (!ingredientAcceptsItemId(ing, entry.getKey())) {
+                    continue;
+                }
+                long remaining = entry.getValue() - k;
+                if (remaining == 0) {
+                    it.remove();
+                } else {
+                    entry.setValue(remaining);
+                }
+                found = true;
+                break;
+            }
+            if (!found) {
+                return false;
+            }
         }
-        long remaining = working.get(chosenItem) - k;
-        if (remaining == 0) {
-            working.remove(chosenItem);
-        } else {
-            working.put(chosenItem, remaining);
+        return true;
+    }
+
+    /**
+     * Plan-time assignment for plain patterns (overload=false). Bind has
+     * already strictly validated each ingredient against
+     * pattern.getInputs() (NBT-strict), and AE2 guarantees the KeyCounter
+     * delivers exactly those pattern keys, so we deduct K per ingredient by
+     * item id alone and return the KeyCounter's exact key as the grid
+     * stack &mdash; no per-push ingredient.test required.
+     */
+    @Nullable
+    private static List<ItemStack> assignIngredientsTrusted(NonNullList<Ingredient> ingredients,
+                                                            LinkedHashMap<Item, Long> available,
+                                                            Map<Item, AEItemKey> keysByItem,
+                                                            long k) {
+        var perCraftStacks = new ArrayList<ItemStack>();
+        for (var ing : ingredients) {
+            if (ing.isEmpty()) {
+                continue;
+            }
+            Item chosen = null;
+            for (var entry : available.entrySet()) {
+                if (entry.getValue() < k) {
+                    continue;
+                }
+                if (!ingredientAcceptsItemId(ing, entry.getKey())) {
+                    continue;
+                }
+                chosen = entry.getKey();
+                break;
+            }
+            if (chosen == null) {
+                return null;
+            }
+            var key = keysByItem.get(chosen);
+            if (key == null) {
+                return null;
+            }
+            long remaining = available.get(chosen) - k;
+            if (remaining == 0) {
+                available.remove(chosen);
+            } else {
+                available.put(chosen, remaining);
+            }
+            perCraftStacks.add(key.toStack(1));
         }
-        return chosenStack;
+        return perCraftStacks;
+    }
+
+    /**
+     * Plan-time assignment for overloaded ID_ONLY patterns. Bind only
+     * matched by item id, so we re-run {@code ingredient.test} against the
+     * runtime KeyCounter stack (NBT-strict) per dispatch. Failure here
+     * means the player's overloaded NBT variant is not actually accepted
+     * by the recipe &mdash; refuse the dispatch instead of producing under
+     * a mismatched grid.
+     */
+    @Nullable
+    private static List<ItemStack> assignIngredientsStrict(NonNullList<Ingredient> ingredients,
+                                                           LinkedHashMap<Item, Long> available,
+                                                           Map<Item, AEItemKey> keysByItem,
+                                                           long k) {
+        var perCraftStacks = new ArrayList<ItemStack>();
+        for (var ing : ingredients) {
+            if (ing.isEmpty()) {
+                continue;
+            }
+            ItemStack picked = null;
+            Item chosenItem = null;
+            for (var entry : available.entrySet()) {
+                if (entry.getValue() < k) {
+                    continue;
+                }
+                var key = keysByItem.get(entry.getKey());
+                if (key == null) {
+                    continue;
+                }
+                var stack = key.toStack(1);
+                if (!ing.test(stack)) {
+                    continue;
+                }
+                picked = stack;
+                chosenItem = entry.getKey();
+                break;
+            }
+            if (picked == null) {
+                return null;
+            }
+            long remaining = available.get(chosenItem) - k;
+            if (remaining == 0) {
+                available.remove(chosenItem);
+            } else {
+                available.put(chosenItem, remaining);
+            }
+            perCraftStacks.add(picked);
+        }
+        return perCraftStacks;
     }
 
     private static boolean ingredientAcceptsItemId(Ingredient ing, Item item) {
@@ -469,6 +590,25 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
                 }
             }
         } catch (RuntimeException | LinkageError ignored) {
+        }
+        return false;
+    }
+
+    private static int countNonEmpty(NonNullList<Ingredient> ingredients) {
+        int count = 0;
+        for (var ing : ingredients) {
+            if (!ing.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean anyLeftover(LinkedHashMap<Item, Long> working) {
+        for (var v : working.values()) {
+            if (v > 0) {
+                return true;
+            }
         }
         return false;
     }
@@ -799,7 +939,12 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         }
     }
 
-    private record BatchMatch(int craftRatio, Object recipe, List<ItemStack> perCraftStacks) {
+    /**
+     * Bind-time cache populated by {@link #searchHandle}. Captures the
+     * matched recipe, the batch multiplier K, and the pattern's output
+     * match mode so plan-time dispatch can skip the recipe-table scan.
+     */
+    private record EcBindHandle(TableSpec spec, Object recipe, int craftRatio, boolean overload) {
     }
 
     private static final class EcReflection {
