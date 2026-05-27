@@ -3,9 +3,7 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.occultism;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
@@ -13,9 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -62,8 +58,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
     private static final String MOD_ID = "occultism";
     private static final ResourceLocation RITUAL_RECIPE_TYPE = occultismId("ritual");
     private static final int MAX_INPUT_UNITS = 128;
-
-    private final Map<PendingRitualKey, PendingSyntheticOutput> pendingSyntheticOutputs = new HashMap<>();
 
     @Override
     public int priority() {
@@ -194,9 +188,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                     proxyCostConsumer(match.proxyCosts())));
         }
 
-        var synthetic = syntheticOutputIfNeeded(bind.recipe(), level, mainPos, pattern);
-        return new DispatchPlan(List.copyOf(targets), synthetic == null ? null : () -> pendingSyntheticOutputs.put(
-                new PendingRitualKey(level.dimension(), mainPos), synthetic));
+        return new DispatchPlan(List.copyOf(targets), null);
     }
 
     @Override
@@ -240,15 +232,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             if (extracted.isEmpty()) {
                 continue;
             }
-            reconcilePhysicalExtraction(
-                    level, mainPos, AEItemKey.of(extracted), extracted.getCount());
             return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
-        }
-
-        var synthetic = pendingSyntheticOutputs.get(new PendingRitualKey(level.dimension(), mainPos));
-        if (synthetic != null && allowsAutoReturn(level, mainPos, filter, synthetic.key())) {
-            pendingSyntheticOutputs.remove(new PendingRitualKey(level.dimension(), mainPos));
-            return List.of(new GenericStack(synthetic.key(), synthetic.amount()));
         }
 
         return List.of();
@@ -631,50 +615,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
         return stack.getItem() instanceof SpawnEggItem;
     }
 
-    /**
-     * Synthetic output mirrors whatever the pattern declares as its primary
-     * output. Ritual results aren't compared against the recipe at all &mdash;
-     * the user controls what the pattern returns, and we replay that exact
-     * stack once the ritual completes. Returns null if the pattern has no
-     * primary item output (e.g. for fluid-only or side-effect-only patterns).
-     */
-    @Nullable
-    private static PendingSyntheticOutput syntheticOutputIfNeeded(Object recipe, ServerLevel level,
-                                                                  BlockPos mainPos, IPatternDetails pattern) {
-        var outputs = pattern.getOutputs();
-        if (outputs.isEmpty()) {
-            return null;
-        }
-        var first = outputs.getFirst();
-        if (!(first.what() instanceof AEItemKey itemKey)) {
-            return null;
-        }
-        var candidate = new OccultismSyntheticOutputLedger.SyntheticCandidate(
-                itemKey.getId().toString(), first.amount(), isSpawnEgg(itemKey.toStack(1)));
-        return OccultismSyntheticOutputLedger.primaryRealOutput(candidate)
-                .map(realOutput -> new PendingSyntheticOutput(
-                        itemKey, realOutput.amount()))
-                .orElse(null);
-    }
-
-    private void reconcilePhysicalExtraction(ServerLevel level, BlockPos mainPos,
-                                             AEItemKey physicalKey, long physicalAmount) {
-        var pendingKey = new PendingRitualKey(level.dimension(), mainPos);
-        var synthetic = pendingSyntheticOutputs.get(pendingKey);
-        if (synthetic == null) {
-            return;
-        }
-
-        long remaining = OccultismSyntheticOutputLedger.remainingAfterPhysicalExtraction(
-                synthetic.key().getId().toString(), synthetic.amount(),
-                physicalKey.getId().toString(), physicalAmount);
-        if (remaining <= 0) {
-            pendingSyntheticOutputs.remove(pendingKey);
-        } else if (remaining != synthetic.amount()) {
-            pendingSyntheticOutputs.put(pendingKey, new PendingSyntheticOutput(synthetic.key(), remaining));
-        }
-    }
-
     private static List<RecipeHolder<?>> recipes(ServerLevel level) {
         return BuiltInRegistries.RECIPE_TYPE.getOptional(RITUAL_RECIPE_TYPE)
                 .map(type -> recipesForType(level, type))
@@ -710,10 +650,9 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
     }
 
     /**
-     * Opaque handle returned from {@link #bind}. Caches the matched recipe and
-     * whether it's a flame-of-automation rite so {@code canDispatch} /
-     * {@code planWithBinding} / {@code planVirtualWithBinding} can skip the
-     * recipe-table scan entirely.
+     * Opaque handle returned from {@link #bind}. Caches the matched recipe so
+     * {@code canDispatch} / {@code planWithBinding} can skip the recipe-table
+     * scan entirely.
      */
     private record OccultismBindHandle(Object recipe) {
     }
@@ -725,12 +664,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
     }
 
     private record BowlSlot(BlockPos pos) {
-    }
-
-    private record PendingRitualKey(ResourceKey<Level> dimension, BlockPos pos) {
-    }
-
-    private record PendingSyntheticOutput(AEItemKey key, long amount) {
     }
 
     private static final class OccultismReflection {
@@ -750,7 +683,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
         private static volatile @Nullable Field itemStackHandlerField;
         private static volatile @Nullable Method getActivationItemMethod;
         private static volatile @Nullable Method getIngredientsMethod;
-        private static volatile @Nullable Method getResultItemMethod;
         private static volatile @Nullable Method getRitualTypeMethod;
         private static volatile @Nullable Method requiresSacrificeMethod;
         private static volatile @Nullable Method requiresItemUseMethod;
@@ -904,20 +836,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
         }
 
         @Nullable
-        static ItemStack getResultItem(Object recipe, HolderLookup.Provider registries) {
-            ensureLookup();
-            if (getResultItemMethod == null) {
-                return null;
-            }
-            try {
-                var value = getResultItemMethod.invoke(recipe, registries);
-                return value instanceof ItemStack stack ? stack.copy() : null;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                return null;
-            }
-        }
-
-        @Nullable
         static ResourceLocation getRitualType(Object recipe) {
             ensureLookup();
             if (getRitualTypeMethod == null) {
@@ -1002,7 +920,6 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             if (ritualRecipeClass != null) {
                 getActivationItemMethod = tryMethod(ritualRecipeClass, "getActivationItem");
                 getIngredientsMethod = tryMethod(ritualRecipeClass, "getIngredients");
-                getResultItemMethod = tryMethod(ritualRecipeClass, "getResultItem", HolderLookup.Provider.class);
                 getRitualTypeMethod = tryMethod(ritualRecipeClass, "getRitualType");
                 requiresSacrificeMethod = tryMethod(ritualRecipeClass, "requiresSacrifice");
                 requiresItemUseMethod = tryMethod(ritualRecipeClass, "requiresItemUse");
