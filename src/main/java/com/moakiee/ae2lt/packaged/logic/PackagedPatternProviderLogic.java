@@ -37,6 +37,7 @@ import com.moakiee.ae2lt.logic.energy.PowerCostUtil;
 import com.moakiee.ae2lt.mixin.PatternProviderLogicAccessor;
 import com.moakiee.ae2lt.packaged.blockentity.PackagedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.packaged.item.MultiblockAdapterItem;
+import com.moakiee.ae2lt.packaged.logic.multiblock.AdapterPersistentScope;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchExecutor;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapterRegistry;
@@ -160,6 +161,23 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     public void onAdapterSlotChanged() {
         bindingTable.invalidateAll();
         cooldownTable.clear();
+    }
+
+    /**
+     * Provider-owned persistent flag store handed to multiblock adapters.
+     *
+     * <p>The host {@link PackagedPatternProviderBlockEntity} implements
+     * {@link AdapterPersistentScope} directly; this helper just narrows the
+     * cast in one place so the rest of the logic can hand the scope around
+     * without each call site repeating the type cast (and so a future host
+     * variant that doesn't implement the interface still type-checks here,
+     * falling back to {@link AdapterPersistentScope#NOOP}).
+     */
+    private AdapterPersistentScope adapterScope() {
+        if (getOverloadedHost() instanceof AdapterPersistentScope scope) {
+            return scope;
+        }
+        return AdapterPersistentScope.NOOP;
     }
 
     // ===== Push path =====
@@ -294,7 +312,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
             // 1. Pre-extract outputs so the machine has output room
             var extracted = candidate.adapter().extractOutputs(
-                    env.level(), env.pos(), filter, getActionSource());
+                    env.level(), env.pos(), filter, getActionSource(), adapterScope());
             if (!extracted.isEmpty()) {
                 insertOutputsToReturnInv(extracted);
             }
@@ -307,7 +325,8 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
             // 3. Build and execute the plan
             var plan = candidate.adapter().planWithBinding(
-                    env.level(), env.pos(), pattern, inputs, candidate.handle(), getActionSource());
+                    env.level(), env.pos(), pattern, inputs, candidate.handle(),
+                    getActionSource(), adapterScope());
             if (plan == null
                     || !DispatchExecutor.execute(plan, getActionSource(), getInternalReturnInv()).success()) {
                 cooldownTable.recordFailure(candidate.lane(), gameTick);
@@ -391,7 +410,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
                 continue;
             }
             var pos = getOverloadedHost().getBlockPos().relative(face);
-            var outputs = adapter.extractOutputs(level, pos, filter, getActionSource());
+            var outputs = adapter.extractOutputs(level, pos, filter, getActionSource(), adapterScope());
             if (!outputs.isEmpty()) {
                 insertOutputsToReturnInv(outputs);
             }
@@ -418,7 +437,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
             if (adapter == null || adapter instanceof VirtualCraftingAdapter) {
                 continue;
             }
-            var outputs = adapter.extractOutputs(targetLevel, conn.pos(), filter, getActionSource());
+            var outputs = adapter.extractOutputs(targetLevel, conn.pos(), filter, getActionSource(), adapterScope());
             if (!outputs.isEmpty()) {
                 insertOutputsToReturnInv(outputs);
             }

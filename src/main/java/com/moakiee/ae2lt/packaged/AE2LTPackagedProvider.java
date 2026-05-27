@@ -24,6 +24,11 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsAtomicRec
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsEmpowererAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauEnchantingApparatusAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauImbuementChamberAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.botania.AlfheimPortalAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.botania.ManaPoolAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.botania.PetalApothecaryAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.botania.RunicAltarAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.botania.TerraPlateAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.de.DraconicFusionCraftingAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingCombinationAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ec.ExtendedCraftingEnderCrafterAdapter;
@@ -34,6 +39,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.fa.ForbiddenArcanusHephaestus
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.AwakeningAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismSpiritFireAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekanismMoreMachinesAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
@@ -71,9 +77,15 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ForbiddenArcanusHephaestusForgeAdapter());
             MultiblockAdapterRegistry.register(new ForbiddenArcanusClibanoAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
+            MultiblockAdapterRegistry.register(new OccultismSpiritFireAdapter());
             MultiblockAdapterRegistry.register(new InfusionAltarAdapter());
             MultiblockAdapterRegistry.register(new AwakeningAltarAdapter());
             MultiblockAdapterRegistry.register(new MekanismMoreMachinesAdapter());
+            MultiblockAdapterRegistry.register(new PetalApothecaryAdapter());
+            MultiblockAdapterRegistry.register(new ManaPoolAdapter());
+            MultiblockAdapterRegistry.register(new AlfheimPortalAdapter());
+            MultiblockAdapterRegistry.register(new TerraPlateAdapter());
+            MultiblockAdapterRegistry.register(new RunicAltarAdapter());
 
             var packagedBlock = PPBlocks.PACKAGED_PATTERN_PROVIDER.get();
             var packagedBeType = PPBlockEntities.PACKAGED_PATTERN_PROVIDER.get();

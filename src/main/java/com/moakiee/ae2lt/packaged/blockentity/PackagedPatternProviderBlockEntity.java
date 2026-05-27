@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -26,14 +27,27 @@ import com.moakiee.ae2lt.api.pattern.PatternProviderUiProfile;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.packaged.item.MultiblockAdapterItem;
 import com.moakiee.ae2lt.packaged.logic.PackagedPatternProviderLogic;
+import com.moakiee.ae2lt.packaged.logic.multiblock.AdapterPersistentScope;
 import com.moakiee.ae2lt.packaged.menu.PackagedPatternProviderMenu;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
 
 public class PackagedPatternProviderBlockEntity extends OverloadedPatternProviderBlockEntity
-        implements PatternProviderUiProfile {
+        implements PatternProviderUiProfile, AdapterPersistentScope {
 
     private static final String TAG_ADAPTER_INV = "ae2ltpp_adapter_inv";
+    private static final String TAG_ADAPTER_FLAGS = "ae2ltpp_adapter_flags";
+
+    /**
+     * Per-(key, target-position) boolean flag store backing
+     * {@link AdapterPersistentScope}. We keep it as a flat {@code key -> set of
+     * packed BlockPos longs} map so the on-disk shape is the cheapest possible
+     * (one {@code long[]} per key, mostly empty in practice), and so the same
+     * provider can host flags from several adapters concurrently without
+     * clashing &mdash; namespacing is the adapter's responsibility, which is
+     * spelled out in {@link AdapterPersistentScope}.
+     */
+    private final java.util.HashMap<String, java.util.HashSet<Long>> adapterFlags = new java.util.HashMap<>();
 
     private final ProviderMode fixedProviderMode;
 
@@ -195,12 +209,73 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
         if (data.contains(TAG_ADAPTER_INV)) {
             adapterInv.readFromNBT(data, TAG_ADAPTER_INV, registries);
         }
+        adapterFlags.clear();
+        if (data.contains(TAG_ADAPTER_FLAGS, Tag.TAG_COMPOUND)) {
+            var flagsTag = data.getCompound(TAG_ADAPTER_FLAGS);
+            for (var key : flagsTag.getAllKeys()) {
+                long[] arr = flagsTag.getLongArray(key);
+                if (arr.length == 0) {
+                    continue;
+                }
+                var set = new java.util.HashSet<Long>(arr.length);
+                for (long packed : arr) {
+                    set.add(packed);
+                }
+                adapterFlags.put(key, set);
+            }
+        }
     }
 
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);
         adapterInv.writeToNBT(data, TAG_ADAPTER_INV, registries);
+        if (!adapterFlags.isEmpty()) {
+            var flagsTag = new CompoundTag();
+            for (var entry : adapterFlags.entrySet()) {
+                var set = entry.getValue();
+                if (set.isEmpty()) {
+                    continue;
+                }
+                long[] arr = new long[set.size()];
+                int i = 0;
+                for (long packed : set) {
+                    arr[i++] = packed;
+                }
+                flagsTag.putLongArray(entry.getKey(), arr);
+            }
+            if (!flagsTag.isEmpty()) {
+                data.put(TAG_ADAPTER_FLAGS, flagsTag);
+            }
+        }
+    }
+
+    @Override
+    public void setFlag(BlockPos targetPos, String key) {
+        var set = adapterFlags.computeIfAbsent(key, k -> new java.util.HashSet<>());
+        if (set.add(targetPos.asLong())) {
+            saveChanges();
+        }
+    }
+
+    @Override
+    public boolean hasFlag(BlockPos targetPos, String key) {
+        var set = adapterFlags.get(key);
+        return set != null && set.contains(targetPos.asLong());
+    }
+
+    @Override
+    public void clearFlag(BlockPos targetPos, String key) {
+        var set = adapterFlags.get(key);
+        if (set == null) {
+            return;
+        }
+        if (set.remove(targetPos.asLong())) {
+            if (set.isEmpty()) {
+                adapterFlags.remove(key);
+            }
+            saveChanges();
+        }
     }
 
     @Override

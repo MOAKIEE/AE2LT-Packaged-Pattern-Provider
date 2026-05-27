@@ -23,7 +23,13 @@
   "item.ae2ltpp.ma_awakening_altar_adapter": "觉醒祭坛适配器",
   "item.ae2ltpp.ma_infusion_altar_adapter": "灌注祭坛适配器",
   "item.ae2ltpp.occultism_ritual_adapter": "神秘学仪式适配器",
+  "item.ae2ltpp.occultism_spirit_fire_adapter": "神秘学灵火适配器",
   "item.ae2ltpp.mekmm_adapter": "Mekanism 大型机器适配器",
+  "item.ae2ltpp.botania_petal_apothecary_adapter": "花药台适配器",
+  "item.ae2ltpp.botania_mana_pool_adapter": "魔力池适配器",
+  "item.ae2ltpp.botania_alfheim_portal_adapter": "精灵传送门适配器",
+  "item.ae2ltpp.botania_terra_plate_adapter": "泰拉凝聚板适配器",
+  "item.ae2ltpp.botania_runic_altar_adapter": "符文祭坛适配器",
   "tooltip.ae2ltpp.adapter.primary": "解锁: %s",
   "tooltip.ae2ltpp.adapter.covers": "向下兼容 %s 种"
 }
