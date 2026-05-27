@@ -155,7 +155,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var targets = new ArrayList<TargetSlot>(match.ingredients().size() + 1);
+        var targets = new ArrayList<TargetSlot>(match.ingredients().size() + 1 + match.proxyCosts().size());
         for (int i = 0; i < match.ingredients().size(); i++) {
             var unit = match.ingredients().get(i);
             var bowl = bowls.get(i);
@@ -184,6 +184,15 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                 InsertionStrategy.CUSTOM,
                 goldenBowlInserter(level, mainPos, bind.recipe(), match.activation(),
                         match.completesSacrifice(), match.completesItemUse())));
+        if (!match.proxyCosts().isEmpty()) {
+            targets.add(new TargetSlot(
+                    level,
+                    mainPos,
+                    null,
+                    match.proxyCosts().stream().map(PlannedUnit::toGenericStack).toList(),
+                    InsertionStrategy.CUSTOM,
+                    proxyCostConsumer(match.proxyCosts())));
+        }
 
         var synthetic = syntheticOutputIfNeeded(bind.recipe(), level, mainPos, pattern);
         return new DispatchPlan(List.copyOf(targets), synthetic == null ? null : () -> pendingSyntheticOutputs.put(
@@ -231,7 +240,8 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             if (extracted.isEmpty()) {
                 continue;
             }
-            pendingSyntheticOutputs.remove(new PendingRitualKey(level.dimension(), mainPos));
+            reconcilePhysicalExtraction(
+                    level, mainPos, AEItemKey.of(extracted), extracted.getCount());
             return List.of(new GenericStack(AEItemKey.of(extracted), extracted.getCount()));
         }
 
@@ -402,6 +412,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
 
         boolean completesSacrifice = false;
         boolean completesItemUse = false;
+        var proxyCosts = new ArrayList<PlannedUnit>(2);
         var itemToUse = OccultismReflection.getItemToUse(recipe);
         boolean requiresSacrifice = OccultismReflection.requiresSacrifice(recipe);
         boolean requiresItemUse = itemToUse != null && OccultismReflection.requiresItemUse(recipe);
@@ -413,18 +424,20 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             if (!completesSacrifice && requiresSacrifice && isSpawnEgg(unit.stack())) {
                 completesSacrifice = true;
                 used[i] = true;
+                proxyCosts.add(unit);
                 continue;
             }
             if (!completesItemUse && requiresItemUse && itemToUse.test(unit.stack())) {
                 completesItemUse = true;
                 used[i] = true;
+                proxyCosts.add(unit);
                 continue;
             }
             return null;
         }
 
         return new InputMatch(matchedActivation, List.copyOf(matchedIngredients),
-                completesSacrifice, completesItemUse);
+                completesSacrifice, completesItemUse, List.copyOf(proxyCosts));
     }
 
     @Nullable
@@ -527,6 +540,17 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
         };
     }
 
+    private static BiFunction<GenericStack, Actionable, Long> proxyCostConsumer(List<PlannedUnit> units) {
+        return (stack, mode) -> {
+            for (var unit : units) {
+                if (matchesPlannedStack(stack, unit)) {
+                    return 1L;
+                }
+            }
+            return 0L;
+        };
+    }
+
     @Nullable
     private static List<PlannedUnit> expandInputUnits(KeyCounter[] inputs) {
         var units = new ArrayList<PlannedUnit>();
@@ -622,10 +646,33 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             return null;
         }
         var first = outputs.getFirst();
-        if (!(first.what() instanceof AEItemKey itemKey) || first.amount() <= 0) {
+        if (!(first.what() instanceof AEItemKey itemKey)) {
             return null;
         }
-        return new PendingSyntheticOutput(itemKey, first.amount());
+        var candidate = new OccultismSyntheticOutputLedger.SyntheticCandidate(
+                itemKey.getId().toString(), first.amount(), isSpawnEgg(itemKey.toStack(1)));
+        return OccultismSyntheticOutputLedger.primaryRealOutput(candidate)
+                .map(realOutput -> new PendingSyntheticOutput(
+                        itemKey, realOutput.amount()))
+                .orElse(null);
+    }
+
+    private void reconcilePhysicalExtraction(ServerLevel level, BlockPos mainPos,
+                                             AEItemKey physicalKey, long physicalAmount) {
+        var pendingKey = new PendingRitualKey(level.dimension(), mainPos);
+        var synthetic = pendingSyntheticOutputs.get(pendingKey);
+        if (synthetic == null) {
+            return;
+        }
+
+        long remaining = OccultismSyntheticOutputLedger.remainingAfterPhysicalExtraction(
+                synthetic.key().getId().toString(), synthetic.amount(),
+                physicalKey.getId().toString(), physicalAmount);
+        if (remaining <= 0) {
+            pendingSyntheticOutputs.remove(pendingKey);
+        } else if (remaining != synthetic.amount()) {
+            pendingSyntheticOutputs.put(pendingKey, new PendingSyntheticOutput(synthetic.key(), remaining));
+        }
     }
 
     private static List<RecipeHolder<?>> recipes(ServerLevel level) {
@@ -673,7 +720,8 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
 
     /** Per-push input-to-ingredient match result. */
     private record InputMatch(PlannedUnit activation, List<PlannedUnit> ingredients,
-                              boolean completesSacrifice, boolean completesItemUse) {
+                              boolean completesSacrifice, boolean completesItemUse,
+                              List<PlannedUnit> proxyCosts) {
     }
 
     private record BowlSlot(BlockPos pos) {
