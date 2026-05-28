@@ -38,6 +38,13 @@ repositories {
         url = "https://maven.theillusivec4.top/"
     }
     maven {
+        name = "BlameJared"
+        url = "https://maven.blamejared.com/"
+        content {
+            includeGroup "team.lodestar.lodestone"
+        }
+    }
+    maven {
         url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/"
     }
     maven {
@@ -181,6 +188,7 @@ dependencies {
     runtimeOnly "maven.modrinth:geckolib:18qeSgOb"                     // 4.7.7             (Occultism + Ars, 4.8.x needs javafml:5)
     runtimeOnly "maven.modrinth:codechicken-lib:gQ1srSKh"              // 4.6.1.526         (DE)
     runtimeOnly "maven.modrinth:brandons-core:56nwe5IX"                // 3.2.1.309         (DE)
+    runtimeOnly "team.lodestar.lodestone:lodestone:1.21.1-1.8.2.524"   // 1.8.2.524         (Malum 1.8.2 API)
 
     // Target mods (one adapter per mod under logic/multiblock/<mod>/)
     runtimeOnly "maven.modrinth:actually-additions:vcrVjWZ3"           // 1.3.25            (aa/)
@@ -191,6 +199,7 @@ dependencies {
     runtimeOnly "maven.modrinth:draconic-evolution:lBMsiWyw"           // 3.1.4.632         (de/)
     runtimeOnly "maven.modrinth:valhelsia-core:cttRekq9"               // 1.1.4             (FA dep)
     runtimeOnly "maven.modrinth:forbidden-arcanus:fNjxgZPH"            // 2.6.1             (fa/)
+    runtimeOnly "curse.maven:malum-484064:7307339"                     // 1.8.2             (malum/)
 
     // QoL: 中文拼音搜索(JEI 友好)
     runtimeOnly "maven.modrinth:justenoughcharacters:TdUA8TeZ"         // 4.5.23

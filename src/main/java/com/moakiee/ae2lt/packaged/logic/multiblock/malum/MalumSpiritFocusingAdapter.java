@@ -100,7 +100,7 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
         return catalystInventory != null
                 && spiritInventory != null
                 && catalystInventory.getSlots() >= 1
-                && !catalystInventory.getStackInSlot(0).isEmpty()
+                && MalumAdapterSupport.inventoryEmpty(catalystInventory)
                 && MalumAdapterSupport.inventoryEmpty(spiritInventory);
     }
 
@@ -125,12 +125,8 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
         if (catalystInventory == null
                 || spiritInventory == null
                 || catalystInventory.getSlots() < 1
+                || !MalumAdapterSupport.inventoryEmpty(catalystInventory)
                 || !MalumAdapterSupport.inventoryEmpty(spiritInventory)) {
-            return null;
-        }
-
-        var catalyst = catalystInventory.getStackInSlot(0);
-        if (catalyst.isEmpty()) {
             return null;
         }
 
@@ -139,12 +135,20 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
             return null;
         }
 
-        var match = findRecipeMatch(bind.recipes(), catalyst, aggregatedInputs);
+        var match = findRecipeMatch(bind.recipes(), aggregatedInputs);
         if (match == null || match.spirits().size() > spiritInventory.getSlots()) {
             return null;
         }
 
-        var targets = new ArrayList<TargetSlot>(match.spirits().size());
+        var targets = new ArrayList<TargetSlot>(1 + match.spirits().size());
+        targets.add(new TargetSlot(
+                level,
+                mainPos,
+                null,
+                List.of(MalumAdapterSupport.toGenericStack(match.catalyst())),
+                InsertionStrategy.CUSTOM,
+                catalystInserter(level, mainPos, match.catalystIngredient(), match.catalyst())));
+
         for (int i = 0; i < match.spirits().size(); i++) {
             var assignment = match.spirits().get(i);
             targets.add(new TargetSlot(
@@ -169,19 +173,24 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
         if (be == null || !recognizesMain(level, mainPos, be)) {
             return List.of();
         }
-        return DroppedItemDispatch.collectOutputs(
+        var outputs = new ArrayList<>(DroppedItemDispatch.collectOutputs(
                 level,
                 crucibleOutputAabb(mainPos),
                 filter,
-                entity -> true);
+                entity -> true));
+        var catalyst = extractReusableCatalyst(be);
+        if (!catalyst.isEmpty()) {
+            outputs.add(new GenericStack(AEItemKey.of(catalyst), catalyst.getCount()));
+        }
+        return List.copyOf(outputs);
     }
 
     @Nullable
-    private static RecipeMatch findRecipeMatch(List<Object> recipes, ItemStack catalyst,
+    private static RecipeMatch findRecipeMatch(List<Object> recipes,
                                                List<MalumRecipeInputMatcher.Input<AEItemKey>> inputs) {
         for (var recipe : recipes) {
             var input = MalumReflection.focusingInput(recipe);
-            if (input == null || !input.test(catalyst)) {
+            if (input == null) {
                 continue;
             }
 
@@ -193,12 +202,39 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
                 continue;
             }
 
-            var assignments = MalumRecipeInputMatcher.matchAll(inputs, spiritRequirements);
-            if (assignments != null) {
-                return new RecipeMatch(input, assignments);
+            var match = matchFocusingInputs(
+                    inputs,
+                    MalumAdapterSupport.requirement(input, 1),
+                    spiritRequirements);
+            if (match != null) {
+                return new RecipeMatch(input, match.catalyst(), match.spirits());
             }
         }
         return null;
+    }
+
+    @Nullable
+    static <T> FocusInputMatch<T> matchFocusingInputs(
+            List<MalumRecipeInputMatcher.Input<T>> inputs,
+            MalumRecipeInputMatcher.Requirement<T> catalyst,
+            List<MalumRecipeInputMatcher.Requirement<T>> spirits) {
+        var match = MalumRecipeInputMatcher.match(inputs, catalyst, spirits, List.of());
+        return match == null ? null : new FocusInputMatch<>(match.main(), match.spirits());
+    }
+
+    private static ItemStack extractReusableCatalyst(BlockEntity be) {
+        if (!MalumReflection.isCrucibleInactive(be)) {
+            return ItemStack.EMPTY;
+        }
+        var inventory = MalumReflection.crucibleInventory(be);
+        if (inventory == null || inventory.getSlots() < 1) {
+            return ItemStack.EMPTY;
+        }
+        var stack = inventory.getStackInSlot(0);
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        return inventory.extractItem(0, stack.getCount(), false);
     }
 
     private static List<Object> findCandidateRecipes(ServerLevel level, IPatternDetails pattern) {
@@ -245,10 +281,6 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
             if (catalystInventory == null || spiritInventory == null || catalystInventory.getSlots() < 1) {
                 return 0L;
             }
-            var catalyst = catalystInventory.getStackInSlot(0);
-            if (catalyst.isEmpty() || !catalystIngredient.test(catalyst)) {
-                return 0L;
-            }
 
             var planned = MalumAdapterSupport.toItemStack(assignment);
             if (!MalumAdapterSupport.canPlace(spiritInventory, slot, planned)) {
@@ -256,7 +288,52 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
             }
 
             if (mode == Actionable.MODULATE) {
-                spiritInventory.setStackInSlot(slot, planned);
+                var catalyst = catalystInventory.getStackInSlot(0);
+                if (catalyst.isEmpty() || !catalystIngredient.test(catalyst)) {
+                    return 0L;
+                }
+                if (!MalumReflection.insertItem(level, spiritInventory, slot, planned)) {
+                    return 0L;
+                }
+            }
+            return assignment.amount();
+        };
+    }
+
+    private static BiFunction<GenericStack, Actionable, Long> catalystInserter(
+            ServerLevel level,
+            BlockPos mainPos,
+            Ingredient catalystIngredient,
+            MalumRecipeInputMatcher.Assignment<AEItemKey> assignment) {
+        return (stack, mode) -> {
+            if (!MalumAdapterSupport.matchesPlannedStack(stack, assignment)) {
+                return 0L;
+            }
+
+            var be = level.getBlockEntity(mainPos);
+            if (be == null
+                    || !blockId(be.getBlockState()).equals(CRUCIBLE_BLOCK)
+                    || !MalumReflection.isSpiritCrucible(be)
+                    || !MalumReflection.isCrucibleInactive(be)
+                    || !hasCrucibleComponent(level, mainPos)) {
+                return 0L;
+            }
+
+            var catalystInventory = MalumReflection.crucibleInventory(be);
+            if (catalystInventory == null || catalystInventory.getSlots() < 1) {
+                return 0L;
+            }
+
+            var planned = MalumAdapterSupport.toItemStack(assignment);
+            if (!catalystIngredient.test(planned)
+                    || !MalumAdapterSupport.canPlace(catalystInventory, 0, planned)) {
+                return 0L;
+            }
+
+            if (mode == Actionable.MODULATE) {
+                if (!MalumReflection.insertItem(level, catalystInventory, 0, planned)) {
+                    return 0L;
+                }
             }
             return assignment.amount();
         };
@@ -309,9 +386,20 @@ public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
 
     private record RecipeMatch(
             Ingredient catalystIngredient,
+            MalumRecipeInputMatcher.Assignment<AEItemKey> catalyst,
             List<MalumRecipeInputMatcher.Assignment<AEItemKey>> spirits) {
         RecipeMatch {
             Objects.requireNonNull(catalystIngredient, "catalystIngredient");
+            Objects.requireNonNull(catalyst, "catalyst");
+            spirits = List.copyOf(spirits);
+        }
+    }
+
+    record FocusInputMatch<T>(
+            MalumRecipeInputMatcher.Assignment<T> catalyst,
+            List<MalumRecipeInputMatcher.Assignment<T>> spirits) {
+        FocusInputMatch {
+            Objects.requireNonNull(catalyst, "catalyst");
             spirits = List.copyOf(spirits);
         }
     }
