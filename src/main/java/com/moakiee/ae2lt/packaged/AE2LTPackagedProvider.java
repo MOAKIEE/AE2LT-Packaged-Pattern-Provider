@@ -36,12 +36,6 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.ma.InfusionAltarAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.malum.MalumSpiritFocusingAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.malum.MalumSpiritInfusionAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.occultism.OccultismRitualAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeChemicalInfuserAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeElectrolyticSeparatorAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeNucleosynthesizerAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargePigmentMixerAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeRotaryCondensentratorAdapter;
-import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.LargeSolarNeutronActivatorAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekanismMoreMachinesAdapter;
 import com.moakiee.ae2lt.packaged.registry.PPBlockEntities;
 import com.moakiee.ae2lt.packaged.registry.PPBlocks;
@@ -84,12 +78,6 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new MekanismMoreMachinesAdapter());
             MultiblockAdapterRegistry.register(new MalumSpiritFocusingAdapter());
             MultiblockAdapterRegistry.register(new MalumSpiritInfusionAdapter());
-            MultiblockAdapterRegistry.register(new LargeNucleosynthesizerAdapter());
-            MultiblockAdapterRegistry.register(new LargeChemicalInfuserAdapter());
-            MultiblockAdapterRegistry.register(new LargeElectrolyticSeparatorAdapter());
-            MultiblockAdapterRegistry.register(new LargeRotaryCondensentratorAdapter());
-            MultiblockAdapterRegistry.register(new LargeSolarNeutronActivatorAdapter());
-            MultiblockAdapterRegistry.register(new LargePigmentMixerAdapter());
 
             var packagedBlock = PPBlocks.PACKAGED_PATTERN_PROVIDER.get();
             var packagedBeType = PPBlockEntities.PACKAGED_PATTERN_PROVIDER.get();

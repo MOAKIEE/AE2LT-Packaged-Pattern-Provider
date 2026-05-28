@@ -39,6 +39,8 @@ public final class PPCreativeTabs {
                         output.accept(PPItems.MA_AWAKENING_ADAPTER);
                         output.accept(PPItems.MA_INFUSION_ADAPTER);
                         output.accept(PPItems.OCCULTISM_RITUAL_ADAPTER);
+                        output.accept(PPItems.MALUM_SPIRIT_FOCUSING_ADAPTER);
+                        output.accept(PPItems.MALUM_SPIRIT_INFUSION_ADAPTER);
                         output.accept(PPItems.MEKMM_ADAPTER);
                     })
                     .build());
