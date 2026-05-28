@@ -103,6 +103,16 @@ public final class PPItems {
                     AdapterIds.MA_INFUSION,
                     Set.of(AdapterIds.MA_INFUSION));
 
+    public static final DeferredItem<MultiblockAdapterItem> MALUM_SPIRIT_FOCUSING_ADAPTER =
+            registerAdapter("malum_spirit_focusing_adapter",
+                    AdapterIds.MALUM_SPIRIT_FOCUSING,
+                    Set.of(AdapterIds.MALUM_SPIRIT_FOCUSING));
+
+    public static final DeferredItem<MultiblockAdapterItem> MALUM_SPIRIT_INFUSION_ADAPTER =
+            registerAdapter("malum_spirit_infusion_adapter",
+                    AdapterIds.MALUM_SPIRIT_INFUSION,
+                    Set.of(AdapterIds.MALUM_SPIRIT_INFUSION));
+
     public static final DeferredItem<MultiblockAdapterItem> OCCULTISM_RITUAL_ADAPTER =
             registerAdapter("occultism_ritual_adapter",
                     AdapterIds.OCCULTISM_RITUAL,
