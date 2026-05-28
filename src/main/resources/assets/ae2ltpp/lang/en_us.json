@@ -24,7 +24,13 @@
   "item.ae2ltpp.malum_spirit_focusing_adapter": "Spirit Focusing Adapter",
   "item.ae2ltpp.malum_spirit_infusion_adapter": "Spirit Infusion Adapter",
   "item.ae2ltpp.occultism_ritual_adapter": "Occultism Ritual Adapter",
+  "item.ae2ltpp.occultism_spirit_fire_adapter": "Spirit Fire Adapter",
   "item.ae2ltpp.mekmm_adapter": "Mekanism More Machines Adapter",
+  "item.ae2ltpp.botania_petal_apothecary_adapter": "Petal Apothecary Adapter",
+  "item.ae2ltpp.botania_mana_pool_adapter": "Mana Pool Adapter",
+  "item.ae2ltpp.botania_alfheim_portal_adapter": "Alfheim Portal Adapter",
+  "item.ae2ltpp.botania_terra_plate_adapter": "Terra Plate Adapter",
+  "item.ae2ltpp.botania_runic_altar_adapter": "Runic Altar Adapter",
   "tooltip.ae2ltpp.adapter.primary": "Unlocks: %s",
   "tooltip.ae2ltpp.adapter.covers": "Covers %s adapters"
 }

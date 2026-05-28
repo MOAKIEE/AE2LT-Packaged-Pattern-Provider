@@ -1,0 +1,657 @@
+package com.moakiee.ae2lt.packaged.logic.multiblock.botania;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Optional;
+import java.util.function.IntFunction;
+
+import org.jetbrains.annotations.Nullable;
+
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeInput;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.fml.ModList;
+
+/**
+ * Lazy-resolved reflection handles into Botania (1.21.1 SNAPSHOT).
+ *
+ * <p>Botania is not a compile dependency for this project &mdash; the
+ * SNAPSHOT JAR is loaded at runtime via {@code runtimeOnly files(...)},
+ * and the maintainer explicitly states 1.21.1 is unsupported for bug
+ * reports. Every access here is therefore null-safe and reflective, so
+ * a missing class / renamed field merely degrades the adapter to "mod
+ * not present" rather than crashing the host.
+ */
+public final class BotaniaReflection {
+
+    public static final String MOD_ID = "botania";
+
+    // ===== Class names (kept here for one-place updates if Botania renames) =====
+
+    private static final String CLS_MANA_POOL_BE =
+            "vazkii.botania.common.block.block_entity.mana.ManaPoolBlockEntity";
+    private static final String CLS_PETAL_APOTHECARY_BE =
+            "vazkii.botania.common.block.block_entity.PetalApothecaryBlockEntity";
+    private static final String CLS_ALFHEIM_PORTAL_BE =
+            "vazkii.botania.common.block.block_entity.AlfheimPortalBlockEntity";
+    private static final String CLS_RUNIC_ALTAR_BE =
+            "vazkii.botania.common.block.block_entity.RunicAltarBlockEntity";
+    private static final String CLS_TERRA_PLATE_BE =
+            "vazkii.botania.common.block.block_entity.TerrestrialAgglomerationPlateBlockEntity";
+
+    private static final String CLS_SIMPLE_INVENTORY_BE =
+            "vazkii.botania.common.block.block_entity.SimpleInventoryBlockEntity";
+
+    private static final String CLS_MANA_RECEIVER = "vazkii.botania.api.mana.ManaReceiver";
+
+    private static final String CLS_PETAL_APOTHECARY_IFACE = "vazkii.botania.api.block.PetalApothecary";
+    private static final String CLS_PETAL_APOTHECARY_STATE = "vazkii.botania.api.block.PetalApothecary$State";
+    private static final String CLS_ALFHEIM_PORTAL_STATE = "vazkii.botania.api.state.enums.AlfheimPortalState";
+    private static final String CLS_TERRA_PLATE_STATE = "vazkii.botania.api.state.enums.TerraPlateState";
+
+    private static final String CLS_MANA_INFUSION_RECIPE = "vazkii.botania.api.recipe.ManaInfusionRecipe";
+    private static final String CLS_ELVEN_TRADE_RECIPE = "vazkii.botania.api.recipe.ElvenTradeRecipe";
+    private static final String CLS_PETAL_APOTHECARY_RECIPE = "vazkii.botania.api.recipe.PetalApothecaryRecipe";
+    private static final String CLS_RUNIC_ALTAR_RECIPE = "vazkii.botania.api.recipe.RunicAltarRecipe";
+    private static final String CLS_TERRA_PLATE_RECIPE = "vazkii.botania.api.recipe.TerrestrialAgglomerationRecipe";
+
+    private static final String CLS_PROCESSING_RECIPE_INPUT = "vazkii.botania.api.recipe.ProcessingRecipeInput";
+    private static final String CLS_STATE_INGREDIENT = "vazkii.botania.api.recipe.StateIngredient";
+    private static final String CLS_RECIPE_WITH_REAGENT = "vazkii.botania.api.recipe.RecipeWithReagent";
+    private static final String CLS_RECIPE_WITH_CATALYSTS = "vazkii.botania.api.recipe.RecipeWithCatalysts";
+
+    private static final String CLS_BOTANIA_RECIPE_TYPES = "vazkii.botania.common.crafting.BotaniaRecipeTypes";
+
+    private static final String CLS_STACKS_PROCESSING_INPUT =
+            "vazkii.botania.common.crafting.recipe.StacksProcessingRecipeInput";
+
+    // ===== Lazy holders =====
+
+    private static volatile boolean attempted;
+    private static volatile boolean available;
+
+    // Class handles
+    @Nullable private static Class<?> manaPoolBeClass;
+    @Nullable private static Class<?> petalApothecaryBeClass;
+    @Nullable private static Class<?> alfheimPortalBeClass;
+    @Nullable private static Class<?> runicAltarBeClass;
+    @Nullable private static Class<?> terraPlateBeClass;
+    @Nullable private static Class<?> simpleInventoryBeClass;
+    @Nullable private static Class<?> manaReceiverClass;
+    @Nullable private static Class<?> petalApothecaryIfaceClass;
+    @Nullable private static Class<?> petalApothecaryStateClass;
+    @Nullable private static Class<?> alfheimPortalStateClass;
+    @Nullable private static Class<?> terraPlateStateClass;
+
+    @Nullable private static Class<?> manaInfusionRecipeClass;
+    @Nullable private static Class<?> elvenTradeRecipeClass;
+    @Nullable private static Class<?> petalApothecaryRecipeClass;
+    @Nullable private static Class<?> runicAltarRecipeClass;
+    @Nullable private static Class<?> terraPlateRecipeClass;
+
+    @Nullable private static Class<?> processingRecipeInputClass;
+    @Nullable private static Class<?> stateIngredientClass;
+    @Nullable private static Class<?> recipeWithReagentClass;
+    @Nullable private static Class<?> recipeWithCatalystsClass;
+
+    // Method handles
+    @Nullable private static Method getCurrentMana;          // ManaReceiver
+    @Nullable private static Method receiveMana;             // ManaReceiver
+    @Nullable private static Method getMaxMana;              // ManaPool only
+    @Nullable private static Method poolGetMatchingRecipe;   // ManaPoolBlockEntity
+    @Nullable private static Method poolCraftingEffect;      // ManaPoolBlockEntity
+    @Nullable private static Method apothecaryGetFluid;
+    @Nullable private static Method apothecarySetFluid;
+    @Nullable private static Method simpleBeGetItemHandler;  // SimpleInventoryBlockEntity
+    @Nullable private static Method simpleBeGetRecipeInput;  // SimpleInventoryBlockEntity
+    @Nullable private static Method stateIngredientTest;     // StateIngredient.test(BlockState)
+    @Nullable private static Method reagentGetReagent;       // RecipeWithReagent.getReagent()
+    @Nullable private static Method catalystsGetCatalysts;   // RecipeWithCatalysts.getCatalysts()
+
+    // Field handles
+    @Nullable private static Field portalTicksOpen;          // AlfheimPortalBlockEntity.ticksOpen
+    @Nullable private static Field altarCurrentRecipe;       // RunicAltarBlockEntity.currentRecipe
+    @Nullable private static Field altarMana;                // RunicAltarBlockEntity.mana
+    @Nullable private static Field altarManaToGet;           // RunicAltarBlockEntity.manaToGet
+    @Nullable private static Field terraMana;                // TerrestrialAgglomerationPlateBlockEntity.mana
+    @Nullable private static Field terraManaToGet;           // TerrestrialAgglomerationPlateBlockEntity.manaToGet
+    @Nullable private static Field terraCurrentProgress;     // TerrestrialAgglomerationPlateBlockEntity.currentProgress
+
+    @Nullable private static Constructor<?> stacksProcessingInputCtor;
+
+    // RecipeType statics from BotaniaRecipeTypes
+    @Nullable private static RecipeType<?> manaInfusionType;
+    @Nullable private static RecipeType<?> elvenTradeType;
+    @Nullable private static RecipeType<?> petalType;
+    @Nullable private static RecipeType<?> runeType;
+    @Nullable private static RecipeType<?> terraPlateType;
+
+    // State enum values (cached for fast equals)
+    @Nullable private static Object stateEmpty;
+    @Nullable private static Object stateWater;
+    @Nullable private static Object stateLava;
+    @Nullable private static Object portalStateOff;
+    @Nullable private static Object portalStateOnX;
+    @Nullable private static Object portalStateOnZ;
+
+    private BotaniaReflection() {
+    }
+
+    /**
+     * Returns true when Botania is loaded AND all hot-path reflection
+     * handles resolved successfully on the first attempt. Adapters should
+     * short-circuit when this is false instead of throwing.
+     */
+    public static boolean isAvailable() {
+        if (!attempted) {
+            attempt();
+        }
+        return available;
+    }
+
+    public static boolean isModLoaded() {
+        return ModList.get().isLoaded(MOD_ID);
+    }
+
+    private static synchronized void attempt() {
+        if (attempted) {
+            return;
+        }
+        attempted = true;
+        if (!isModLoaded()) {
+            return;
+        }
+        try {
+            manaPoolBeClass = Class.forName(CLS_MANA_POOL_BE);
+            petalApothecaryBeClass = Class.forName(CLS_PETAL_APOTHECARY_BE);
+            alfheimPortalBeClass = Class.forName(CLS_ALFHEIM_PORTAL_BE);
+            runicAltarBeClass = Class.forName(CLS_RUNIC_ALTAR_BE);
+            terraPlateBeClass = Class.forName(CLS_TERRA_PLATE_BE);
+            simpleInventoryBeClass = Class.forName(CLS_SIMPLE_INVENTORY_BE);
+            manaReceiverClass = Class.forName(CLS_MANA_RECEIVER);
+            petalApothecaryIfaceClass = Class.forName(CLS_PETAL_APOTHECARY_IFACE);
+            petalApothecaryStateClass = Class.forName(CLS_PETAL_APOTHECARY_STATE);
+            alfheimPortalStateClass = Class.forName(CLS_ALFHEIM_PORTAL_STATE);
+            terraPlateStateClass = Class.forName(CLS_TERRA_PLATE_STATE);
+
+            manaInfusionRecipeClass = Class.forName(CLS_MANA_INFUSION_RECIPE);
+            elvenTradeRecipeClass = Class.forName(CLS_ELVEN_TRADE_RECIPE);
+            petalApothecaryRecipeClass = Class.forName(CLS_PETAL_APOTHECARY_RECIPE);
+            runicAltarRecipeClass = Class.forName(CLS_RUNIC_ALTAR_RECIPE);
+            terraPlateRecipeClass = Class.forName(CLS_TERRA_PLATE_RECIPE);
+
+            processingRecipeInputClass = Class.forName(CLS_PROCESSING_RECIPE_INPUT);
+            stateIngredientClass = Class.forName(CLS_STATE_INGREDIENT);
+            recipeWithReagentClass = Class.forName(CLS_RECIPE_WITH_REAGENT);
+            recipeWithCatalystsClass = Class.forName(CLS_RECIPE_WITH_CATALYSTS);
+
+            getCurrentMana = manaReceiverClass.getMethod("getCurrentMana");
+            receiveMana = manaReceiverClass.getMethod("receiveMana", int.class);
+            getMaxMana = manaPoolBeClass.getMethod("getMaxMana");
+
+            poolGetMatchingRecipe = manaPoolBeClass.getMethod("getMatchingRecipe",
+                    ItemStack.class, BlockState.class);
+            poolCraftingEffect = manaPoolBeClass.getMethod("craftingEffect", boolean.class);
+
+            apothecaryGetFluid = petalApothecaryIfaceClass.getMethod("getFluid");
+            apothecarySetFluid = petalApothecaryIfaceClass.getMethod("setFluid", petalApothecaryStateClass);
+
+            simpleBeGetItemHandler = simpleInventoryBeClass.getMethod("getItemHandler");
+            simpleBeGetRecipeInput = simpleInventoryBeClass.getMethod("getRecipeInput");
+
+            stateIngredientTest = stateIngredientClass.getMethod("test", BlockState.class);
+            reagentGetReagent = recipeWithReagentClass.getMethod("getReagent");
+            catalystsGetCatalysts = recipeWithCatalystsClass.getMethod("getCatalysts");
+
+            portalTicksOpen = field(alfheimPortalBeClass, "ticksOpen");
+            altarCurrentRecipe = field(runicAltarBeClass, "currentRecipe");
+            altarMana = field(runicAltarBeClass, "mana");
+            altarManaToGet = field(runicAltarBeClass, "manaToGet");
+            terraMana = field(terraPlateBeClass, "mana");
+            terraManaToGet = field(terraPlateBeClass, "manaToGet");
+            terraCurrentProgress = field(terraPlateBeClass, "currentProgress");
+
+            stateEmpty = enumValue(petalApothecaryStateClass, "EMPTY");
+            stateWater = enumValue(petalApothecaryStateClass, "WATER");
+            stateLava = enumValue(petalApothecaryStateClass, "LAVA");
+            portalStateOff = enumValue(alfheimPortalStateClass, "OFF");
+            portalStateOnX = enumValue(alfheimPortalStateClass, "ON_X");
+            portalStateOnZ = enumValue(alfheimPortalStateClass, "ON_Z");
+
+            stacksProcessingInputCtor = Class.forName(CLS_STACKS_PROCESSING_INPUT)
+                    .getConstructor(ItemStack[].class);
+
+            var typeHolder = Class.forName(CLS_BOTANIA_RECIPE_TYPES);
+            manaInfusionType = (RecipeType<?>) typeHolder.getField("MANA_INFUSION_TYPE").get(null);
+            elvenTradeType = (RecipeType<?>) typeHolder.getField("ELVEN_TRADE_TYPE").get(null);
+            petalType = (RecipeType<?>) typeHolder.getField("PETAL_TYPE").get(null);
+            runeType = (RecipeType<?>) typeHolder.getField("RUNE_TYPE").get(null);
+            terraPlateType = (RecipeType<?>) typeHolder.getField("TERRA_PLATE_TYPE").get(null);
+
+            available = true;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            available = false;
+        }
+    }
+
+    @Nullable
+    private static Field field(@Nullable Class<?> owner, String name) throws ReflectiveOperationException {
+        if (owner == null) {
+            return null;
+        }
+        var f = owner.getDeclaredField(name);
+        f.setAccessible(true);
+        return f;
+    }
+
+    @Nullable
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object enumValue(@Nullable Class<?> enumClass, String name) {
+        if (enumClass == null || !enumClass.isEnum()) {
+            return null;
+        }
+        try {
+            return Enum.valueOf((Class) enumClass, name);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    // ===== Class predicates =====
+
+    public static boolean isManaPool(@Nullable BlockEntity be) {
+        return isAvailable() && manaPoolBeClass != null && manaPoolBeClass.isInstance(be);
+    }
+
+    public static boolean isPetalApothecary(@Nullable BlockEntity be) {
+        return isAvailable() && petalApothecaryBeClass != null && petalApothecaryBeClass.isInstance(be);
+    }
+
+    public static boolean isAlfheimPortal(@Nullable BlockEntity be) {
+        return isAvailable() && alfheimPortalBeClass != null && alfheimPortalBeClass.isInstance(be);
+    }
+
+    public static boolean isRunicAltar(@Nullable BlockEntity be) {
+        return isAvailable() && runicAltarBeClass != null && runicAltarBeClass.isInstance(be);
+    }
+
+    public static boolean isTerraPlate(@Nullable BlockEntity be) {
+        return isAvailable() && terraPlateBeClass != null && terraPlateBeClass.isInstance(be);
+    }
+
+    // ===== Mana Pool =====
+
+    public static int manaPoolCurrentMana(BlockEntity be) {
+        try {
+            return (int) getCurrentMana.invoke(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static int manaPoolMaxMana(BlockEntity be) {
+        try {
+            return (int) getMaxMana.invoke(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static void manaPoolReceiveMana(BlockEntity be, int delta) {
+        try {
+            receiveMana.invoke(be, delta);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        }
+    }
+
+    public static void manaPoolCraftingEffect(BlockEntity be) {
+        try {
+            poolCraftingEffect.invoke(be, true);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        }
+    }
+
+    /**
+     * Mirror of {@code ManaPoolBlockEntity#getMatchingRecipe(ItemStack, BlockState)}.
+     * Returns the {@code RecipeHolder<ManaInfusionRecipe>} whose ingredient
+     * accepts the given item and whose catalyst matches the block under the
+     * pool, or {@code null} when no recipe matches.
+     */
+    @Nullable
+    public static RecipeHolder<?> manaPoolMatchingRecipe(BlockEntity be, ItemStack stack, BlockState below) {
+        try {
+            var result = poolGetMatchingRecipe.invoke(be, stack, below);
+            return result instanceof RecipeHolder<?> holder ? holder : null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    // ===== Petal Apothecary =====
+
+    @Nullable
+    public static Object apothecaryFluid(BlockEntity be) {
+        try {
+            return apothecaryGetFluid.invoke(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    public static boolean apothecaryHasWater(BlockEntity be) {
+        var fluid = apothecaryFluid(be);
+        return fluid != null && fluid == stateWater;
+    }
+
+    public static void apothecarySetEmpty(BlockEntity be) {
+        try {
+            apothecarySetFluid.invoke(be, stateEmpty);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        }
+    }
+
+    // ===== Alfheim Portal =====
+
+    public static int portalTicksOpen(BlockEntity be) {
+        try {
+            return portalTicksOpen.getInt(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static boolean portalIsOpen(BlockEntity be, BlockState state) {
+        // Either the BE ticks-open counter says "open" or the controller's
+        // block state is in one of the ON_X/ON_Z values.
+        if (portalTicksOpen(be) > 0) {
+            return true;
+        }
+        for (var prop : state.getProperties()) {
+            if (alfheimPortalStateClass != null && alfheimPortalStateClass.isInstance(state.getValue(prop))) {
+                var value = state.getValue(prop);
+                return value == portalStateOnX || value == portalStateOnZ;
+            }
+        }
+        return false;
+    }
+
+    // ===== Runic Altar =====
+
+    @Nullable
+    public static RecipeHolder<?> altarCurrentRecipe(BlockEntity be) {
+        try {
+            var v = altarCurrentRecipe.get(be);
+            return v instanceof RecipeHolder<?> holder ? holder : null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    public static int altarMana(BlockEntity be) {
+        try {
+            return altarMana.getInt(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static int altarManaToGet(BlockEntity be) {
+        try {
+            return altarManaToGet.getInt(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static void altarResetState(BlockEntity be) {
+        try {
+            altarMana.setInt(be, 0);
+            altarManaToGet.setInt(be, 0);
+            altarCurrentRecipe.set(be, null);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        }
+    }
+
+    // ===== Terra Plate =====
+
+    public static int terraMana(BlockEntity be) {
+        try {
+            return terraMana.getInt(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static int terraManaToGet(BlockEntity be) {
+        try {
+            return terraManaToGet.getInt(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return 0;
+        }
+    }
+
+    public static boolean terraIsIdle(BlockEntity be) {
+        return terraMana(be) == 0 && terraManaToGet(be) == 0;
+    }
+
+    // ===== SimpleInventory / Recipe helpers =====
+
+    @Nullable
+    public static Container simpleInventoryContainer(BlockEntity be) {
+        try {
+            return (Container) simpleBeGetItemHandler.invoke(be);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the live {@link RecipeInput} backing the BE's inventory.
+     * Cast freely to {@link Recipe#matches(RecipeInput, net.minecraft.world.level.Level) Recipe.matches}'s
+     * concrete input type at the call site.
+     */
+    @Nullable
+    public static RecipeInput simpleInventoryRecipeInput(BlockEntity be) {
+        try {
+            var v = simpleBeGetRecipeInput.invoke(be);
+            return v instanceof RecipeInput input ? input : null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Constructs a Botania {@code ProcessingRecipeInput} backed by the
+     * given stack array. Returned object passes
+     * {@code Recipe.matches(ProcessingRecipeInput, Level)} for all
+     * Botania recipe types whose input type parameter is
+     * {@code ProcessingRecipeInput} (elven trade, runic altar, terra
+     * plate, petal apothecary). Returns {@code null} when the reflection
+     * handle wasn't resolved.
+     */
+    @Nullable
+    public static RecipeInput createProcessingInput(ItemStack[] stacks) {
+        if (stacksProcessingInputCtor == null) {
+            return null;
+        }
+        try {
+            return (RecipeInput) stacksProcessingInputCtor.newInstance((Object) stacks);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    public static boolean stateIngredientAccepts(Object stateIngredient, BlockState state) {
+        try {
+            return (boolean) stateIngredientTest.invoke(stateIngredient, state);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
+
+    // ===== Recipe types =====
+
+    @Nullable public static RecipeType<?> manaInfusionType() { return manaInfusionType; }
+    @Nullable public static RecipeType<?> elvenTradeType() { return elvenTradeType; }
+    @Nullable public static RecipeType<?> petalType() { return petalType; }
+    @Nullable public static RecipeType<?> runeType() { return runeType; }
+    @Nullable public static RecipeType<?> terraPlateType() { return terraPlateType; }
+
+    // ===== Recipe class predicates (used by lookup module to filter holders) =====
+
+    public static boolean isManaInfusionRecipe(Object recipe) {
+        return manaInfusionRecipeClass != null && manaInfusionRecipeClass.isInstance(recipe);
+    }
+
+    public static boolean isElvenTradeRecipe(Object recipe) {
+        return elvenTradeRecipeClass != null && elvenTradeRecipeClass.isInstance(recipe);
+    }
+
+    public static boolean isPetalApothecaryRecipe(Object recipe) {
+        return petalApothecaryRecipeClass != null && petalApothecaryRecipeClass.isInstance(recipe);
+    }
+
+    public static boolean isRunicAltarRecipe(Object recipe) {
+        return runicAltarRecipeClass != null && runicAltarRecipeClass.isInstance(recipe);
+    }
+
+    public static boolean isTerraPlateRecipe(Object recipe) {
+        return terraPlateRecipeClass != null && terraPlateRecipeClass.isInstance(recipe);
+    }
+
+    /**
+     * Generic helper: invokes a zero-arg method on a recipe whose return
+     * type the caller knows. Used by the lookup module to pull
+     * {@code getManaToConsume() / getMana() / getOutputs() / ...} without
+     * compiling against Botania.
+     */
+    public static <T> Optional<T> invokeRecipeMethod(Object recipe, String methodName, Class<T> resultType) {
+        try {
+            var m = recipe.getClass().getMethod(methodName);
+            var v = m.invoke(recipe);
+            if (v == null) {
+                return Optional.empty();
+            }
+            if (!resultType.isInstance(v)) {
+                return Optional.empty();
+            }
+            return Optional.of(resultType.cast(v));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return Optional.empty();
+        }
+    }
+
+    public static int invokeRecipeIntMethod(Object recipe, String methodName, int fallback) {
+        try {
+            var m = recipe.getClass().getMethod(methodName);
+            var v = m.invoke(recipe);
+            return v instanceof Integer i ? i : fallback;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Helper that lets adapters reflectively use the recipe's
+     * {@code getReagent()} when it's a {@link #recipeWithReagentClass}.
+     */
+    @Nullable
+    public static net.minecraft.world.item.crafting.Ingredient recipeReagent(Object recipe) {
+        try {
+            if (recipeWithReagentClass == null || !recipeWithReagentClass.isInstance(recipe)) {
+                return null;
+            }
+            var v = reagentGetReagent.invoke(recipe);
+            return v instanceof net.minecraft.world.item.crafting.Ingredient ing ? ing : null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the recipe's catalyst ingredient list when it's a
+     * {@link #recipeWithCatalystsClass}; empty list when the recipe
+     * has no catalysts or doesn't implement the interface. Catalysts
+     * sit in the same inventory as the regular ingredients and
+     * {@code matches()} requires {@code input.size() == ingredients.size() +
+     * catalysts.size()} &mdash; so adapters must dispatch them together
+     * with the ingredients and reclaim them from
+     * {@code recipe.getRemainingItems(input)} after the craft.
+     */
+    public static java.util.List<net.minecraft.world.item.crafting.Ingredient>
+            recipeCatalysts(Object recipe) {
+        try {
+            if (recipeWithCatalystsClass == null || !recipeWithCatalystsClass.isInstance(recipe)) {
+                return java.util.List.of();
+            }
+            var v = catalystsGetCatalysts.invoke(recipe);
+            if (v instanceof java.util.List<?> list) {
+                var out = new java.util.ArrayList<net.minecraft.world.item.crafting.Ingredient>(list.size());
+                for (var entry : list) {
+                    if (entry instanceof net.minecraft.world.item.crafting.Ingredient ing) {
+                        out.add(ing);
+                    }
+                }
+                return out;
+            }
+            return java.util.List.of();
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return java.util.List.of();
+        }
+    }
+
+    /**
+     * Reflectively calls {@code recipe.getRemainingItems(input)},
+     * returning the per-slot list of "items the recipe consumes but
+     * leaves in the inventory" (Botania uses this for catalysts).
+     * Returns an empty list on any failure so the adapter can fall
+     * back to "no catalysts to reclaim" without crashing.
+     */
+    public static java.util.List<net.minecraft.world.item.ItemStack>
+            recipeRemainingItems(Object recipe, net.minecraft.world.item.crafting.RecipeInput input) {
+        try {
+            var m = recipe.getClass().getMethod("getRemainingItems", input.getClass());
+            var v = m.invoke(recipe, input);
+            if (v instanceof java.util.List<?> list) {
+                var out = new java.util.ArrayList<net.minecraft.world.item.ItemStack>(list.size());
+                for (var entry : list) {
+                    if (entry instanceof net.minecraft.world.item.ItemStack stack) {
+                        out.add(stack);
+                    }
+                }
+                return out;
+            }
+            return java.util.List.of();
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            // Try the more generic RecipeInput overload (matches the bridge
+            // method generated by the parameterised Recipe interface).
+            try {
+                var m = recipe.getClass().getMethod("getRemainingItems",
+                        net.minecraft.world.item.crafting.RecipeInput.class);
+                var v = m.invoke(recipe, input);
+                if (v instanceof java.util.List<?> list) {
+                    var out = new java.util.ArrayList<net.minecraft.world.item.ItemStack>(list.size());
+                    for (var entry : list) {
+                        if (entry instanceof net.minecraft.world.item.ItemStack stack) {
+                            out.add(stack);
+                        }
+                    }
+                    return out;
+                }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored2) {
+                // Fall through.
+            }
+            return java.util.List.of();
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private interface IntSupplierFn extends IntFunction<Integer> {
+    }
+}

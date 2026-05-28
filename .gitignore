@@ -26,6 +26,11 @@ docs/
 # Eclipse IDE compiled output
 bin/
 
+# Eclipse IDE workspace metadata
+.eclipse/
+
 # Cursor workspace-local configuration
 .cursor/
-.eclipse/
+
+# Local-only dependency drops (SNAPSHOT jars resolved out-of-band, see build.gradle comments)
+libs/

@@ -70,6 +70,8 @@ public final class AdapterIds {
             id("malum/spirit_infusion_adapter");
     public static final ResourceLocation OCCULTISM_RITUAL =
             id("occultism/ritual_adapter");
+    public static final ResourceLocation OCCULTISM_SPIRIT_FIRE =
+            id("occultism/spirit_fire_adapter");
     /**
      * Single key card covering every Mekanism: More Machines large multiblock
      * (chemical infuser, electrolytic separator, antiprotonic nucleosynthesizer,
@@ -79,6 +81,16 @@ public final class AdapterIds {
      */
     public static final ResourceLocation MEKMM =
             id("mekmm/large_machine_adapter");
+    public static final ResourceLocation BOTANIA_PETAL_APOTHECARY =
+            id("botania/petal_apothecary_adapter");
+    public static final ResourceLocation BOTANIA_MANA_POOL =
+            id("botania/mana_pool_adapter");
+    public static final ResourceLocation BOTANIA_ALFHEIM_PORTAL =
+            id("botania/alfheim_portal_adapter");
+    public static final ResourceLocation BOTANIA_TERRA_PLATE =
+            id("botania/terra_plate_adapter");
+    public static final ResourceLocation BOTANIA_RUNIC_ALTAR =
+            id("botania/runic_altar_adapter");
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(AE2LTPackagedProvider.MODID, path);

@@ -118,10 +118,40 @@ public final class PPItems {
                     AdapterIds.OCCULTISM_RITUAL,
                     Set.of(AdapterIds.OCCULTISM_RITUAL));
 
+    public static final DeferredItem<MultiblockAdapterItem> OCCULTISM_SPIRIT_FIRE_ADAPTER =
+            registerAdapter("occultism_spirit_fire_adapter",
+                    AdapterIds.OCCULTISM_SPIRIT_FIRE,
+                    Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
+
     public static final DeferredItem<MultiblockAdapterItem> MEKMM_ADAPTER =
             registerAdapter("mekmm_adapter",
                     AdapterIds.MEKMM,
                     Set.of(AdapterIds.MEKMM));
+
+    public static final DeferredItem<MultiblockAdapterItem> BOTANIA_PETAL_APOTHECARY_ADAPTER =
+            registerAdapter("botania_petal_apothecary_adapter",
+                    AdapterIds.BOTANIA_PETAL_APOTHECARY,
+                    Set.of(AdapterIds.BOTANIA_PETAL_APOTHECARY));
+
+    public static final DeferredItem<MultiblockAdapterItem> BOTANIA_MANA_POOL_ADAPTER =
+            registerAdapter("botania_mana_pool_adapter",
+                    AdapterIds.BOTANIA_MANA_POOL,
+                    Set.of(AdapterIds.BOTANIA_MANA_POOL));
+
+    public static final DeferredItem<MultiblockAdapterItem> BOTANIA_ALFHEIM_PORTAL_ADAPTER =
+            registerAdapter("botania_alfheim_portal_adapter",
+                    AdapterIds.BOTANIA_ALFHEIM_PORTAL,
+                    Set.of(AdapterIds.BOTANIA_ALFHEIM_PORTAL));
+
+    public static final DeferredItem<MultiblockAdapterItem> BOTANIA_TERRA_PLATE_ADAPTER =
+            registerAdapter("botania_terra_plate_adapter",
+                    AdapterIds.BOTANIA_TERRA_PLATE,
+                    Set.of(AdapterIds.BOTANIA_TERRA_PLATE));
+
+    public static final DeferredItem<MultiblockAdapterItem> BOTANIA_RUNIC_ALTAR_ADAPTER =
+            registerAdapter("botania_runic_altar_adapter",
+                    AdapterIds.BOTANIA_RUNIC_ALTAR,
+                    Set.of(AdapterIds.BOTANIA_RUNIC_ALTAR));
 
     private PPItems() {
     }

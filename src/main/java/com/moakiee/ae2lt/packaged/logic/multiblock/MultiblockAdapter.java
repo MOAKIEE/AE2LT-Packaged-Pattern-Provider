@@ -77,6 +77,26 @@ public interface MultiblockAdapter {
                                   Object handle, IActionSource source);
 
     /**
+     * Overload of {@link #planWithBinding(ServerLevel, BlockPos, IPatternDetails, KeyCounter[], Object, IActionSource)}
+     * that hands the adapter a {@link AdapterPersistentScope} for stashing
+     * provider-owned, restart-safe flags about this target position. Adapters
+     * that do not need such state should keep using the 6-arg form; the
+     * default bridge here forwards to it ignoring the scope.
+     *
+     * <p>The {@code DispatchPlan.onCommit} runnable returned from this method
+     * runs <i>after</i> the provider has actually paid for the dispatch, which
+     * is the right moment to flip a "we owe this multiblock a harvest" flag on
+     * the scope.
+     */
+    @Nullable
+    default DispatchPlan planWithBinding(ServerLevel level, BlockPos mainPos,
+                                          IPatternDetails pattern, KeyCounter[] inputs,
+                                          Object handle, IActionSource source,
+                                          AdapterPersistentScope scope) {
+        return planWithBinding(level, mainPos, pattern, inputs, handle, source);
+    }
+
+    /**
      * Actively pull allowed outputs from the multiblock into the provider's
      * return inventory. Implementations must remove any returned stacks from
      * the target machine.
@@ -84,6 +104,21 @@ public interface MultiblockAdapter {
     List<GenericStack> extractOutputs(ServerLevel level, BlockPos mainPos,
                                       AllowedOutputFilter filter,
                                       IActionSource source);
+
+    /**
+     * Overload of {@link #extractOutputs(ServerLevel, BlockPos, AllowedOutputFilter, IActionSource)}
+     * that exposes the provider's persistent flag store. Adapters that gated
+     * dispatch on a {@code (target, key)} flag (set in the {@code planWithBinding}
+     * overload's onCommit) should read &mdash; and after a successful pull,
+     * clear &mdash; the same flag here so a player who hand-completed the
+     * craft cannot have the next manual one silently scavenged.
+     */
+    default List<GenericStack> extractOutputs(ServerLevel level, BlockPos mainPos,
+                                               AllowedOutputFilter filter,
+                                               IActionSource source,
+                                               AdapterPersistentScope scope) {
+        return extractOutputs(level, mainPos, filter, source);
+    }
 
     /**
      * Adapter-owned auto-return filter. The default is permissive: once an
