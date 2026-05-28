@@ -28,3 +28,4 @@ bin/
 
 # Cursor workspace-local configuration
 .cursor/
+.eclipse/
