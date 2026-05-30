@@ -16,147 +16,147 @@ public final class PPItems {
     public static final DeferredRegister.Items ITEMS =
             DeferredRegister.createItems(AE2LTPackagedProvider.MODID);
 
-    // ===== Adapter key cards (1 per slot, max-stack 1) =====
+    // ===== Packaged cores (1 per slot, max-stack 1) =====
     //
-    // Each provider holds exactly one card and is locked to that machine family.
+    // Each provider holds exactly one core and is locked to that machine family.
     // EC tiers form a covers-down chain (ultimate ⊇ elite ⊇ advanced ⊇ basic) so
-    // higher cards work on lower tables, matching the user's "向下兼容" requirement.
+    // higher cores work on lower tables, matching the user's "向下兼容" requirement.
 
     public static final DeferredItem<MultiblockAdapterItem> AA_RECONSTRUCTOR_ADAPTER =
-            registerAdapter("aa_reconstructor_adapter",
+            registerPackagedCore("aa_reconstructor_packaged_core",
                     AdapterIds.AA_RECONSTRUCTOR,
                     Set.of(AdapterIds.AA_RECONSTRUCTOR));
 
     public static final DeferredItem<MultiblockAdapterItem> AA_EMPOWERER_ADAPTER =
-            registerAdapter("aa_empowerer_adapter",
+            registerPackagedCore("aa_empowerer_packaged_core",
                     AdapterIds.AA_EMPOWERER,
                     Set.of(AdapterIds.AA_EMPOWERER));
 
     public static final DeferredItem<MultiblockAdapterItem> ARS_APPARATUS_ADAPTER =
-            registerAdapter("ars_apparatus_adapter",
+            registerPackagedCore("ars_apparatus_packaged_core",
                     AdapterIds.ARS_APPARATUS,
                     Set.of(AdapterIds.ARS_APPARATUS));
 
     public static final DeferredItem<MultiblockAdapterItem> ARS_IMBUEMENT_ADAPTER =
-            registerAdapter("ars_imbuement_adapter",
+            registerPackagedCore("ars_imbuement_packaged_core",
                     AdapterIds.ARS_IMBUEMENT,
                     Set.of(AdapterIds.ARS_IMBUEMENT));
 
     public static final DeferredItem<MultiblockAdapterItem> DE_FUSION_ADAPTER =
-            registerAdapter("de_fusion_adapter",
+            registerPackagedCore("de_fusion_packaged_core",
                     AdapterIds.DE_FUSION,
                     Set.of(AdapterIds.DE_FUSION));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_BASIC_ADAPTER =
-            registerAdapter("ec_basic_table_adapter",
+            registerPackagedCore("ec_basic_table_packaged_core",
                     AdapterIds.EC_BASIC,
                     Set.of(AdapterIds.EC_BASIC));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_ADVANCED_ADAPTER =
-            registerAdapter("ec_advanced_table_adapter",
+            registerPackagedCore("ec_advanced_table_packaged_core",
                     AdapterIds.EC_ADVANCED,
                     chain(AdapterIds.EC_BASIC, AdapterIds.EC_ADVANCED));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_ELITE_ADAPTER =
-            registerAdapter("ec_elite_table_adapter",
+            registerPackagedCore("ec_elite_table_packaged_core",
                     AdapterIds.EC_ELITE,
                     chain(AdapterIds.EC_BASIC, AdapterIds.EC_ADVANCED, AdapterIds.EC_ELITE));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_ULTIMATE_ADAPTER =
-            registerAdapter("ec_ultimate_table_adapter",
+            registerPackagedCore("ec_ultimate_table_packaged_core",
                     AdapterIds.EC_ULTIMATE,
                     chain(AdapterIds.EC_BASIC, AdapterIds.EC_ADVANCED,
                             AdapterIds.EC_ELITE, AdapterIds.EC_ULTIMATE));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_ENDER_CRAFTER_ADAPTER =
-            registerAdapter("ec_ender_crafter_adapter",
+            registerPackagedCore("ec_ender_crafter_packaged_core",
                     AdapterIds.EC_ENDER,
                     Set.of(AdapterIds.EC_ENDER));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_FLUX_CRAFTER_ADAPTER =
-            registerAdapter("ec_flux_crafter_adapter",
+            registerPackagedCore("ec_flux_crafter_packaged_core",
                     AdapterIds.EC_FLUX,
                     Set.of(AdapterIds.EC_FLUX));
 
     public static final DeferredItem<MultiblockAdapterItem> EC_COMBINATION_ADAPTER =
-            registerAdapter("ec_combination_adapter",
+            registerPackagedCore("ec_combination_packaged_core",
                     AdapterIds.EC_COMBINATION,
                     Set.of(AdapterIds.EC_COMBINATION));
 
     public static final DeferredItem<MultiblockAdapterItem> FA_HEPHAESTUS_FORGE_ADAPTER =
-            registerAdapter("fa_hephaestus_forge_adapter",
+            registerPackagedCore("fa_hephaestus_forge_packaged_core",
                     AdapterIds.FA_HEPHAESTUS_FORGE,
                     Set.of(AdapterIds.FA_HEPHAESTUS_FORGE));
 
     public static final DeferredItem<MultiblockAdapterItem> FA_CLIBANO_ADAPTER =
-            registerAdapter("fa_clibano_adapter",
+            registerPackagedCore("fa_clibano_packaged_core",
                     AdapterIds.FA_CLIBANO,
                     Set.of(AdapterIds.FA_CLIBANO));
 
     public static final DeferredItem<MultiblockAdapterItem> MA_AWAKENING_ADAPTER =
-            registerAdapter("ma_awakening_altar_adapter",
+            registerPackagedCore("ma_awakening_altar_packaged_core",
                     AdapterIds.MA_AWAKENING,
                     Set.of(AdapterIds.MA_AWAKENING));
 
     public static final DeferredItem<MultiblockAdapterItem> MA_INFUSION_ADAPTER =
-            registerAdapter("ma_infusion_altar_adapter",
+            registerPackagedCore("ma_infusion_altar_packaged_core",
                     AdapterIds.MA_INFUSION,
                     Set.of(AdapterIds.MA_INFUSION));
 
     public static final DeferredItem<MultiblockAdapterItem> MALUM_SPIRIT_FOCUSING_ADAPTER =
-            registerAdapter("malum_spirit_focusing_adapter",
+            registerPackagedCore("malum_spirit_focusing_packaged_core",
                     AdapterIds.MALUM_SPIRIT_FOCUSING,
                     Set.of(AdapterIds.MALUM_SPIRIT_FOCUSING));
 
     public static final DeferredItem<MultiblockAdapterItem> MALUM_SPIRIT_INFUSION_ADAPTER =
-            registerAdapter("malum_spirit_infusion_adapter",
+            registerPackagedCore("malum_spirit_infusion_packaged_core",
                     AdapterIds.MALUM_SPIRIT_INFUSION,
                     Set.of(AdapterIds.MALUM_SPIRIT_INFUSION));
 
     public static final DeferredItem<MultiblockAdapterItem> OCCULTISM_RITUAL_ADAPTER =
-            registerAdapter("occultism_ritual_adapter",
+            registerPackagedCore("occultism_ritual_packaged_core",
                     AdapterIds.OCCULTISM_RITUAL,
                     Set.of(AdapterIds.OCCULTISM_RITUAL));
 
     public static final DeferredItem<MultiblockAdapterItem> OCCULTISM_SPIRIT_FIRE_ADAPTER =
-            registerAdapter("occultism_spirit_fire_adapter",
+            registerPackagedCore("occultism_spirit_fire_packaged_core",
                     AdapterIds.OCCULTISM_SPIRIT_FIRE,
                     Set.of(AdapterIds.OCCULTISM_SPIRIT_FIRE));
 
     public static final DeferredItem<MultiblockAdapterItem> MEKMM_ADAPTER =
-            registerAdapter("mekmm_adapter",
+            registerPackagedCore("mekmm_packaged_core",
                     AdapterIds.MEKMM,
                     Set.of(AdapterIds.MEKMM));
 
     public static final DeferredItem<MultiblockAdapterItem> BOTANIA_PETAL_APOTHECARY_ADAPTER =
-            registerAdapter("botania_petal_apothecary_adapter",
+            registerPackagedCore("botania_petal_apothecary_packaged_core",
                     AdapterIds.BOTANIA_PETAL_APOTHECARY,
                     Set.of(AdapterIds.BOTANIA_PETAL_APOTHECARY));
 
     public static final DeferredItem<MultiblockAdapterItem> BOTANIA_MANA_POOL_ADAPTER =
-            registerAdapter("botania_mana_pool_adapter",
+            registerPackagedCore("botania_mana_pool_packaged_core",
                     AdapterIds.BOTANIA_MANA_POOL,
                     Set.of(AdapterIds.BOTANIA_MANA_POOL));
 
     public static final DeferredItem<MultiblockAdapterItem> BOTANIA_ALFHEIM_PORTAL_ADAPTER =
-            registerAdapter("botania_alfheim_portal_adapter",
+            registerPackagedCore("botania_alfheim_portal_packaged_core",
                     AdapterIds.BOTANIA_ALFHEIM_PORTAL,
                     Set.of(AdapterIds.BOTANIA_ALFHEIM_PORTAL));
 
     public static final DeferredItem<MultiblockAdapterItem> BOTANIA_TERRA_PLATE_ADAPTER =
-            registerAdapter("botania_terra_plate_adapter",
+            registerPackagedCore("botania_terra_plate_packaged_core",
                     AdapterIds.BOTANIA_TERRA_PLATE,
                     Set.of(AdapterIds.BOTANIA_TERRA_PLATE));
 
     public static final DeferredItem<MultiblockAdapterItem> BOTANIA_RUNIC_ALTAR_ADAPTER =
-            registerAdapter("botania_runic_altar_adapter",
+            registerPackagedCore("botania_runic_altar_packaged_core",
                     AdapterIds.BOTANIA_RUNIC_ALTAR,
                     Set.of(AdapterIds.BOTANIA_RUNIC_ALTAR));
 
     private PPItems() {
     }
 
-    private static DeferredItem<MultiblockAdapterItem> registerAdapter(
+    private static DeferredItem<MultiblockAdapterItem> registerPackagedCore(
             String name,
             ResourceLocation primaryId,
             Set<ResourceLocation> coveredIds) {

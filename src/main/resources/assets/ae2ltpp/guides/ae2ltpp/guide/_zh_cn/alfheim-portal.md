@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 精灵传送门
-  icon: botania_alfheim_portal_adapter
+  icon: botania_alfheim_portal_packaged_core
   position: 210
 ---
 
 # 精灵传送门
 
-**所需适配卡：** <ItemLink id="ae2ltpp:botania_alfheim_portal_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:botania_alfheim_portal_packaged_core" />
 **来源模组：** Botania（植物魔法）
 
 通过精灵传送门自动完成精灵交易配方。把供应器贴着传送门框架放置，将交易做成样板；交易所得会被返回。

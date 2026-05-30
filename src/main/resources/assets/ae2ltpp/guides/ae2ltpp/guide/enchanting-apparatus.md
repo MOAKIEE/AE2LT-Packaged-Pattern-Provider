@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Enchanting Apparatus
-  icon: ars_apparatus_adapter
+  icon: ars_apparatus_packaged_core
   position: 30
 ---
 
 # Enchanting Apparatus
 
-**Adapter card:** <ItemLink id="ae2ltpp:ars_apparatus_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ars_apparatus_packaged_core" />
 **Mod:** Ars Nouveau
 
 Automates Enchanting Apparatus recipes. Place the provider against the Apparatus and encode the

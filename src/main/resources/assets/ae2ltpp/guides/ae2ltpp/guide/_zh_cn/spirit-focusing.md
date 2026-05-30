@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 精魂聚焦
-  icon: malum_spirit_focusing_adapter
+  icon: malum_spirit_focusing_packaged_core
   position: 140
 ---
 
 # 精魂聚焦（灵魂坩埚）
 
-**所需适配卡：** <ItemLink id="ae2ltpp:malum_spirit_focusing_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:malum_spirit_focusing_packaged_core" />
 **来源模组：** Malum（恶意）
 
 自动完成灵魂坩埚的精魂聚焦。把供应器贴着**灵魂坩埚**放置，将配方做成样板。每次合成，适配器**只送入**

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Flux Crafter
-  icon: ec_flux_crafter_adapter
+  icon: ec_flux_crafter_packaged_core
   position: 80
 ---
 
 # Flux Crafter
 
-**Adapter card:** <ItemLink id="ae2ltpp:ec_flux_crafter_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ec_flux_crafter_packaged_core" />
 **Mod:** Extended Crafting
 
 Automates the Flux Crafter — the same 3×3 layout as the Ender Crafter, but progress is powered by **FE**

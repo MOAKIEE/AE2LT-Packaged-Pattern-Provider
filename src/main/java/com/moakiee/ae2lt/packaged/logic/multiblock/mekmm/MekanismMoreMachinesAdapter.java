@@ -48,7 +48,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortTy
  * activator, pigment mixer). All per-machine differences live in
  * {@link MekmmMachines} as declarative {@link MekmmMachineSpec} entries.
  *
- * <p>All machines share the same key card ({@link AdapterIds#MEKMM}) so the
+ * <p>All machines share the same packaged core ({@link AdapterIds#MEKMM}) so the
  * user only needs one item in the provider regardless of which large machine
  * sits in front of it.
  */

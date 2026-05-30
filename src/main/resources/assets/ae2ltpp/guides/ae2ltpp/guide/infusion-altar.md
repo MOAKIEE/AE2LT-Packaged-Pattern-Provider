@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Infusion Altar
-  icon: ma_infusion_altar_adapter
+  icon: ma_infusion_altar_packaged_core
   position: 120
 ---
 
 # Infusion Altar
 
-**Adapter card:** <ItemLink id="ae2ltpp:ma_infusion_altar_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ma_infusion_altar_packaged_core" />
 **Mod:** Mystical Agriculture
 
 Automates Infusion Altar recipes (seed/essence crafting). Place the provider against the Infusion Altar

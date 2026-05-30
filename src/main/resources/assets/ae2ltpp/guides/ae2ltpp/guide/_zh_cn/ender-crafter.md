@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 末影合成器
-  icon: ec_ender_crafter_adapter
+  icon: ec_ender_crafter_packaged_core
   position: 70
 ---
 
 # 末影合成器
 
-**所需适配卡：** <ItemLink id="ae2ltpp:ec_ender_crafter_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:ec_ender_crafter_packaged_core" />
 **来源模组：** Extended Crafting（扩展合成）
 
 自动完成末影合成器（3×3、需要时间的合成器）。把供应器贴着末影合成器放置，将配方做成样板。

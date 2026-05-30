@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Runic Altar
-  icon: botania_runic_altar_adapter
+  icon: botania_runic_altar_packaged_core
   position: 230
 ---
 
 # Runic Altar
 
-**Adapter card:** <ItemLink id="ae2ltpp:botania_runic_altar_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:botania_runic_altar_packaged_core" />
 **Mod:** Botania
 
 Automates Runic Altar recipes. Place the provider against the Runic Altar and encode the recipe as a

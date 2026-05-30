@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 附魔装置
-  icon: ars_apparatus_adapter
+  icon: ars_apparatus_packaged_core
   position: 30
 ---
 
 # 附魔装置
 
-**所需适配卡：** <ItemLink id="ae2ltpp:ars_apparatus_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:ars_apparatus_packaged_core" />
 **来源模组：** Ars Nouveau（新生魔艺）
 
 自动完成附魔装置配方。把供应器贴着附魔装置放置，将配方做成样板。适配器会把核心试剂放到装置上、

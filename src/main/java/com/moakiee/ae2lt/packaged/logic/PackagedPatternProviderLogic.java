@@ -153,9 +153,9 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     }
 
     /**
-     * Hook called by the BlockEntity when the adapter key card slot is edited.
+     * Hook called by the BlockEntity when the packaged core slot is edited.
      * The set of unlock-able adapter ids may have changed, so every cached
-     * binding (which encodes the per-candidate "is this card sufficient?"
+     * binding (which encodes the per-candidate "is this core sufficient?"
      * decision implicitly) needs to be recomputed on next push.
      */
     public void onAdapterSlotChanged() {
@@ -660,10 +660,10 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
                 effect.level(), effect.pos(), effect.handle(), getActionSource());
     }
 
-    // ===== Adapter key card gating =====
+    // ===== Packaged core gating =====
 
     /**
-     * @return the key-card ItemStack currently installed in the provider's
+     * @return the packaged-core ItemStack currently installed in the provider's
      * adapter slot, or {@link ItemStack#EMPTY} when the slot is empty.
      */
     private ItemStack installedAdapterStack() {
@@ -675,9 +675,9 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
 
     /**
      * Decides whether the adapter at {@code pos} is allowed to participate in
-     * binding given the currently-installed key card. Adapters whose
+     * binding given the currently-installed packaged core. Adapters whose
      * {@code requiredAdapterId} returns null are always allowed; otherwise the
-     * installed card must {@link MultiblockAdapterItem#covers} the required id
+     * installed core must {@link MultiblockAdapterItem#covers} the required id
      * (this handles EC's tier-cover-down chain transparently).
      */
     private static boolean isAdapterUnlocked(MultiblockAdapter adapter,

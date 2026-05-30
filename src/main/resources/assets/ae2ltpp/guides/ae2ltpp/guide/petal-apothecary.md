@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Petal Apothecary
-  icon: botania_petal_apothecary_adapter
+  icon: botania_petal_apothecary_packaged_core
   position: 190
 ---
 
 # Petal Apothecary
 
-**Adapter card:** <ItemLink id="ae2ltpp:botania_petal_apothecary_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:botania_petal_apothecary_packaged_core" />
 **Mod:** Botania
 
 Automates Petal Apothecary recipes (petals + a seed → a mystical flower). Place the provider against the

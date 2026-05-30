@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Ritual
-  icon: occultism_ritual_adapter
+  icon: occultism_ritual_packaged_core
   position: 160
 ---
 
 # Occultism Ritual
 
-**Adapter card:** <ItemLink id="ae2ltpp:occultism_ritual_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:occultism_ritual_packaged_core" />
 **Mod:** Occultism
 
 Automates Occultism rituals. Place the provider against the **Golden Sacrificial Bowl** that starts the

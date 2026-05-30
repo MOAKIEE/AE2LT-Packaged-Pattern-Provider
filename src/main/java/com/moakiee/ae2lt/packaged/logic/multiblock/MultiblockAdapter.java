@@ -32,13 +32,13 @@ public interface MultiblockAdapter {
     boolean recognizesMain(ServerLevel level, BlockPos pos, @Nullable BlockEntity be);
 
     /**
-     * The adapter-key-card id this adapter requires the provider to have
+     * The packaged-core id this adapter requires the provider to have
      * installed (see {@code AdapterIds} for the canonical list).
      *
-     * <p>Returns {@code null} when no key card is required. Tiered adapters
+     * <p>Returns {@code null} when no packaged core is required. Tiered adapters
      * (Extended Crafting's 4 table tiers) should return the id corresponding
      * to the **block at the queried position** so the slot can hold a single
-     * higher-tier card covering multiple lower tiers via
+     * higher-tier core covering multiple lower tiers via
      * {@code MultiblockAdapterItem.covers(...)}.
      */
     @Nullable

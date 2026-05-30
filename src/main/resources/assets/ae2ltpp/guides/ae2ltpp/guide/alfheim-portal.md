@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Alfheim Portal
-  icon: botania_alfheim_portal_adapter
+  icon: botania_alfheim_portal_packaged_core
   position: 210
 ---
 
 # Alfheim Portal
 
-**Adapter card:** <ItemLink id="ae2ltpp:botania_alfheim_portal_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:botania_alfheim_portal_packaged_core" />
 **Mod:** Botania
 
 Automates Elven Trade recipes through the Alfheim Portal. Place the provider against the portal frame

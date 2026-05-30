@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Spirit Fire
-  icon: occultism_spirit_fire_adapter
+  icon: occultism_spirit_fire_packaged_core
   position: 170
 ---
 
 # Spirit Fire
 
-**Adapter card:** <ItemLink id="ae2ltpp:occultism_spirit_fire_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:occultism_spirit_fire_packaged_core" />
 **Mod:** Occultism
 
 Automates Spirit Fire conversions (the "throw an item into the blue fire to transform it" mechanic).

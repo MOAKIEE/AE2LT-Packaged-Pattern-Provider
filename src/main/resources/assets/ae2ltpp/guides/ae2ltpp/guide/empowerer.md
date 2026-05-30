@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Empowerer
-  icon: aa_empowerer_adapter
+  icon: aa_empowerer_packaged_core
   position: 20
 ---
 
 # Empowerer
 
-**Adapter card:** <ItemLink id="ae2ltpp:aa_empowerer_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:aa_empowerer_packaged_core" />
 **Mod:** Actually Additions
 
 Automates Empowering recipes (one base item + four modifier items → one empowered item).

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 通量合成器
-  icon: ec_flux_crafter_adapter
+  icon: ec_flux_crafter_packaged_core
   position: 80
 ---
 
 # 通量合成器
 
-**所需适配卡：** <ItemLink id="ae2ltpp:ec_flux_crafter_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:ec_flux_crafter_packaged_core" />
 **来源模组：** Extended Crafting（扩展合成）
 
 自动完成通量合成器——结构与末影合成器相同的 3×3，但进度由 **FE 电力**驱动而非时间。

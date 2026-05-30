@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 泰拉凝聚板
-  icon: botania_terra_plate_adapter
+  icon: botania_terra_plate_packaged_core
   position: 220
 ---
 
 # 泰拉凝聚板
 
-**所需适配卡：** <ItemLink id="ae2ltpp:botania_terra_plate_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:botania_terra_plate_packaged_core" />
 **来源模组：** Botania（植物魔法）
 
 自动完成泰拉凝聚（例如用 魔钢锭、魔力珍珠、魔力钻石 凝聚出 泰拉钢）。把供应器贴着泰拉凝聚板放置，

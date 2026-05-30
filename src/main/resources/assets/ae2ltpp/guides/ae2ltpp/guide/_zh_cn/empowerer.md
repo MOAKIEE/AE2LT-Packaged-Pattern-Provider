@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 充能台
-  icon: aa_empowerer_adapter
+  icon: aa_empowerer_packaged_core
   position: 20
 ---
 
 # 充能台
 
-**所需适配卡：** <ItemLink id="ae2ltpp:aa_empowerer_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:aa_empowerer_packaged_core" />
 **来源模组：** Actually Additions（实用拓展）
 
 自动完成充能配方（1 个基础物 + 4 个修饰物 → 1 个充能产物）。把供应器贴着充能台放置，将配方做成样板即可。

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 灌注室
-  icon: ars_imbuement_adapter
+  icon: ars_imbuement_packaged_core
   position: 40
 ---
 
 # 灌注室
 
-**所需适配卡：** <ItemLink id="ae2ltpp:ars_imbuement_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:ars_imbuement_packaged_core" />
 **来源模组：** Ars Nouveau（新生魔艺）
 
 自动完成灌注室配方。把供应器贴着灌注室放置，并在它**紧邻（1 格内）放上奥术基座**。

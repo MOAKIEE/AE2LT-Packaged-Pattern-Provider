@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 精魂灌注
-  icon: malum_spirit_infusion_adapter
+  icon: malum_spirit_infusion_packaged_core
   position: 150
 ---
 
 # 精魂灌注（灵魂祭坛）
 
-**所需适配卡：** <ItemLink id="ae2ltpp:malum_spirit_infusion_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:malum_spirit_infusion_packaged_core" />
 **来源模组：** Malum（恶意）
 
 自动完成灵魂祭坛的精魂灌注。把供应器贴着**灵魂祭坛**放置，将配方做成样板。适配器会把主材料放到祭坛、

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Combination Crafter
-  icon: ec_combination_adapter
+  icon: ec_combination_packaged_core
   position: 90
 ---
 
 # Combination Crafter
 
-**Adapter card:** <ItemLink id="ae2ltpp:ec_combination_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ec_combination_packaged_core" />
 **Mod:** Extended Crafting
 
 Automates Combination Crafting. Place the provider against the **Combination Crafting Core**. The

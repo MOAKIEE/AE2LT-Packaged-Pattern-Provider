@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Imbuement Chamber
-  icon: ars_imbuement_adapter
+  icon: ars_imbuement_packaged_core
   position: 40
 ---
 
 # Imbuement Chamber
 
-**Adapter card:** <ItemLink id="ae2ltpp:ars_imbuement_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ars_imbuement_packaged_core" />
 **Mod:** Ars Nouveau
 
 Automates Imbuement Chamber recipes. Place the provider against the Chamber, with **Arcane Pedestals

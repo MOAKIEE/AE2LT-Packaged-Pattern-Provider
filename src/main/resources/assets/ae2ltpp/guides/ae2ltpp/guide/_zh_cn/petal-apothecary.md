@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 花药台
-  icon: botania_petal_apothecary_adapter
+  icon: botania_petal_apothecary_packaged_core
   position: 190
 ---
 
 # 花药台
 
-**所需适配卡：** <ItemLink id="ae2ltpp:botania_petal_apothecary_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:botania_petal_apothecary_packaged_core" />
 **来源模组：** Botania（植物魔法）
 
 自动完成花药台配方（花瓣 + 一颗种子 → 神秘花朵）。把供应器贴着花药台放置，将配方做成样板。

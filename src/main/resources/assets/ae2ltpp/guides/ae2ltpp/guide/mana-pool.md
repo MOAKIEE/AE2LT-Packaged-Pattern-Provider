@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Mana Pool
-  icon: botania_mana_pool_adapter
+  icon: botania_mana_pool_packaged_core
   position: 200
 ---
 
 # Mana Pool
 
-**Adapter card:** <ItemLink id="ae2ltpp:botania_mana_pool_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:botania_mana_pool_packaged_core" />
 **Mod:** Botania
 
 Automates Mana Pool infusion (one input item → one output item). Place the provider against the Mana

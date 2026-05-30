@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 神秘仪式
-  icon: occultism_ritual_adapter
+  icon: occultism_ritual_packaged_core
   position: 160
 ---
 
 # 神秘仪式
 
-**所需适配卡：** <ItemLink id="ae2ltpp:occultism_ritual_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:occultism_ritual_packaged_core" />
 **来源模组：** Occultism（神秘学）
 
 自动完成 Occultism 的仪式。把供应器贴着启动仪式用的**金献祭碗**放置。适配器会把仪式主物投入金碗、

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 克利巴诺熔炉
-  icon: fa_clibano_adapter
+  icon: fa_clibano_packaged_core
   position: 110
 ---
 
 # 克利巴诺熔炉
 
-**所需适配卡：** <ItemLink id="ae2ltpp:fa_clibano_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:fa_clibano_packaged_core" />
 **来源模组：** Forbidden Arcanus（禁忌与奥秘）
 
 自动完成克利巴诺熔炉的熔炼。搭好 3×3×3 的克利巴诺熔炉，把供应器贴着**熔炉核心**放置。

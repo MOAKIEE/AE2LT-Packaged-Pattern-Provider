@@ -52,7 +52,7 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
     private final ProviderMode fixedProviderMode;
 
     /**
-     * Single-slot inventory holding the {@link MultiblockAdapterItem} key card
+     * Single-slot inventory holding the {@link MultiblockAdapterItem} packaged core
      * that unlocks this provider's machine family. Empty slot = no adapter
      * installed = nothing matches in {@link PackagedPatternProviderLogic}'s
      * binding stage.
@@ -102,7 +102,7 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
     }
 
     /**
-     * Convenience: the single key card currently installed, or
+     * Convenience: the single packaged core currently installed, or
      * {@link ItemStack#EMPTY} when the slot is empty.
      */
     public ItemStack getInstalledAdapterStack() {
@@ -111,7 +111,7 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
 
     /**
      * Notify the dispatch logic that bindings must be re-evaluated because
-     * the player swapped the key card. Safely called from the inventory host
+     * the player swapped the packaged core. Safely called from the inventory host
      * before logic is fully ready (early load phase).
      */
     private void onAdapterInventoryChanged() {

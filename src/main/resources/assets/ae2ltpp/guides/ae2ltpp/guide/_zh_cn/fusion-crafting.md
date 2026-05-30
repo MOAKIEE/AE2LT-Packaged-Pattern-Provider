@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 聚合合成
-  icon: de_fusion_adapter
+  icon: de_fusion_packaged_core
   position: 50
 ---
 
 # 聚合合成
 
-**所需适配卡：** <ItemLink id="ae2ltpp:de_fusion_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:de_fusion_packaged_core" />
 **来源模组：** Draconic Evolution（龙之进化）
 
 自动完成聚合合成。把供应器贴着**聚合合成核心**放置。适配器会自动识别周围的**聚合合成注入器**，

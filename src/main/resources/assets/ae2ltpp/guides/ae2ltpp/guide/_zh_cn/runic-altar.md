@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 符文祭坛
-  icon: botania_runic_altar_adapter
+  icon: botania_runic_altar_packaged_core
   position: 230
 ---
 
 # 符文祭坛
 
-**所需适配卡：** <ItemLink id="ae2ltpp:botania_runic_altar_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:botania_runic_altar_packaged_core" />
 **来源模组：** Botania（植物魔法）
 
 自动完成符文祭坛配方。把供应器贴着符文祭坛放置，将配方做成样板。适配器会把材料送入祭坛；

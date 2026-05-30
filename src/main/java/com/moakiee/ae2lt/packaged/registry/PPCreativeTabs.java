@@ -21,7 +21,7 @@ public final class PPCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(PPBlocks.PACKAGED_PATTERN_PROVIDER);
                         output.accept(PPBlocks.WIRELESS_PACKAGED_PATTERN_PROVIDER);
-                        // Adapter key cards
+                        // Packaged cores
                         output.accept(PPItems.AA_RECONSTRUCTOR_ADAPTER);
                         output.accept(PPItems.AA_EMPOWERER_ADAPTER);
                         output.accept(PPItems.ARS_APPARATUS_ADAPTER);

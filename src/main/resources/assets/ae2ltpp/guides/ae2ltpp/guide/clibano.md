@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Clibano
-  icon: fa_clibano_adapter
+  icon: fa_clibano_packaged_core
   position: 110
 ---
 
 # Clibano (Combustion Chamber)
 
-**Adapter card:** <ItemLink id="ae2ltpp:fa_clibano_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:fa_clibano_packaged_core" />
 **Mod:** Forbidden Arcanus
 
 Automates Clibano smelting. Build the 3×3×3 Clibano and place the provider against the **Clibano Core**.

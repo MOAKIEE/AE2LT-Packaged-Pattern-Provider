@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Atomic Reconstructor
-  icon: aa_reconstructor_adapter
+  icon: aa_reconstructor_packaged_core
   position: 10
 ---
 
 # Atomic Reconstructor
 
-**Adapter card:** <ItemLink id="ae2ltpp:aa_reconstructor_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:aa_reconstructor_packaged_core" />
 **Mod:** Actually Additions
 
 Automates the Atomic Reconstructor's laser conversions (one input item → one output item).

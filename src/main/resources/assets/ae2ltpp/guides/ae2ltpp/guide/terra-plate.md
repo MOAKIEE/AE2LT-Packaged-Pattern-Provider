@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Terra Plate
-  icon: botania_terra_plate_adapter
+  icon: botania_terra_plate_packaged_core
   position: 220
 ---
 
 # Terra Plate (Terrestrial Agglomeration Plate)
 
-**Adapter card:** <ItemLink id="ae2ltpp:botania_terra_plate_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:botania_terra_plate_packaged_core" />
 **Mod:** Botania
 
 Automates Terrestrial Agglomeration (e.g. fusing Terrasteel from Manasteel, Mana Pearl and Mana Diamond).

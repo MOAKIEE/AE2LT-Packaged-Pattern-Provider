@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Spirit Focusing
-  icon: malum_spirit_focusing_adapter
+  icon: malum_spirit_focusing_packaged_core
   position: 140
 ---
 
 # Spirit Focusing (Spirit Crucible)
 
-**Adapter card:** <ItemLink id="ae2ltpp:malum_spirit_focusing_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:malum_spirit_focusing_packaged_core" />
 **Mod:** Malum
 
 Automates Spirit Crucible focusing. Place the provider against the **Spirit Crucible** and encode the

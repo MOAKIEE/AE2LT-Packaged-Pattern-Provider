@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Awakening Altar
-  icon: ma_awakening_altar_adapter
+  icon: ma_awakening_altar_packaged_core
   position: 130
 ---
 
 # Awakening Altar
 
-**Adapter card:** <ItemLink id="ae2ltpp:ma_awakening_altar_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ma_awakening_altar_packaged_core" />
 **Mod:** Mystical Agriculture
 
 Automates Awakening Altar recipes. Place the provider against the Awakening Altar and encode the recipe

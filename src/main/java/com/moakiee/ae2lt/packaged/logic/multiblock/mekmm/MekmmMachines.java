@@ -22,7 +22,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortGr
  * {@link MekanismMoreMachinesAdapter}.
  *
  * <p>Adding a new mekmm machine = appending one entry here; no new adapter
- * class, no new key card, no extra registration in {@code AE2LTPackagedProvider}.
+ * class, no new packaged core, no extra registration in {@code AE2LTPackagedProvider}.
  */
 final class MekmmMachines {
 

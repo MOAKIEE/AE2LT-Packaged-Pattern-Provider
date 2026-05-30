@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Spirit Infusion
-  icon: malum_spirit_infusion_adapter
+  icon: malum_spirit_infusion_packaged_core
   position: 150
 ---
 
 # Spirit Infusion (Spirit Altar)
 
-**Adapter card:** <ItemLink id="ae2ltpp:malum_spirit_infusion_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:malum_spirit_infusion_packaged_core" />
 **Mod:** Malum
 
 Automates Spirit Altar infusion. Place the provider against the **Spirit Altar** and encode the recipe as

@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Hephaestus Forge
-  icon: fa_hephaestus_forge_adapter
+  icon: fa_hephaestus_forge_packaged_core
   position: 100
 ---
 
 # Hephaestus Forge
 
-**Adapter card:** <ItemLink id="ae2ltpp:fa_hephaestus_forge_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:fa_hephaestus_forge_packaged_core" />
 **Mod:** Forbidden Arcanus
 
 Automates Hephaestus Forge rituals. Place the provider against the Forge. The adapter puts the main

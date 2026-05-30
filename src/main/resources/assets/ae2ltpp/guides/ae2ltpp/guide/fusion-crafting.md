@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Fusion Crafting
-  icon: de_fusion_adapter
+  icon: de_fusion_packaged_core
   position: 50
 ---
 
 # Fusion Crafting
 
-**Adapter card:** <ItemLink id="ae2ltpp:de_fusion_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:de_fusion_packaged_core" />
 **Mod:** Draconic Evolution
 
 Automates Fusion Crafting. Place the provider against the **Fusion Crafting Core**. The adapter finds

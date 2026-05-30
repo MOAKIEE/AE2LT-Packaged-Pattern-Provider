@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 魔力池
-  icon: botania_mana_pool_adapter
+  icon: botania_mana_pool_packaged_core
   position: 200
 ---
 
 # 魔力池
 
-**所需适配卡：** <ItemLink id="ae2ltpp:botania_mana_pool_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:botania_mana_pool_packaged_core" />
 **来源模组：** Botania（植物魔法）
 
 自动完成魔力池的魔力注入（一个输入物 → 一个输出物）。把供应器贴着魔力池放置，将配方做成样板；产物会立刻返回。

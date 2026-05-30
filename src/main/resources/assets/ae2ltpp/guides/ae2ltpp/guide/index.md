@@ -1,17 +1,17 @@
 ---
 navigation:
-  title: Packaged Provider Adapter Guide
+  title: Packaged Core Guide
   position: 0
 item_ids:
 - ae2ltpp:packaged_pattern_provider
 - ae2ltpp:wireless_packaged_pattern_provider
 ---
 
-# Packaged Pattern Provider — Adapter Guide
+# Packaged Pattern Provider — Packaged Core Guide
 
 The **Packaged Pattern Provider** (and its wireless version) lets AE2 autocrafting drive
 crafting machines from **other mods**. You choose which machine by inserting a single
-**Adapter Card** into the provider.
+**Packaged Core** into the provider.
 
 ## Opening this guide
 
@@ -21,7 +21,7 @@ crafting machines from **other mods**. You choose which machine by inserting a s
 ## How it works (the same 4 steps for every machine)
 
 1. Place a (Wireless) Packaged Pattern Provider **touching the target machine's main block / core**.
-2. Put the matching **Adapter Card** into the provider's *Adapter Card* slot. One provider serves one machine family at a time.
+2. Put the matching **Packaged Core** into the provider's *Packaged Core* slot. One provider serves one machine family at a time.
 3. Insert the machine's recipe as a **pattern**, exactly like a normal Pattern Provider (encode inputs → output).
 4. When AE2 crafts that output, the provider supplies the ingredients (or crafts instantly) and the finished product flows back into your ME network.
 
@@ -66,7 +66,7 @@ crafting machines from **other mods**. You choose which machine by inserting a s
 * [Spirit Fire](spirit-fire.md)
 
 ### Mekanism: More Machines
-* [Large Machines — one card for all](mekanism-more-machines.md)
+* [Large Machines — one packaged core for all](mekanism-more-machines.md)
 
 ### Botania
 * [Petal Apothecary](petal-apothecary.md) ⚠

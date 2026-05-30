@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: Ender Crafter
-  icon: ec_ender_crafter_adapter
+  icon: ec_ender_crafter_packaged_core
   position: 70
 ---
 
 # Ender Crafter
 
-**Adapter card:** <ItemLink id="ae2ltpp:ec_ender_crafter_adapter" />
+**Packaged Core:** <ItemLink id="ae2ltpp:ec_ender_crafter_packaged_core" />
 **Mod:** Extended Crafting
 
 Automates the Ender Crafter (a 3×3 timed crafter). Place the provider against the Ender Crafter and

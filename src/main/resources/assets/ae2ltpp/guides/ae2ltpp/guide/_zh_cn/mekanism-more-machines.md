@@ -2,16 +2,16 @@
 navigation:
   parent: index.md
   title: 大型机器
-  icon: mekmm_adapter
+  icon: mekmm_packaged_core
   position: 180
 ---
 
 # 通用机械：更多机器 — 大型机器
 
-**所需适配卡：** <ItemLink id="ae2ltpp:mekmm_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:mekmm_packaged_core" />
 **来源模组：** Mekanism: More Machines（通用机械：更多机器）
 
-一张卡即可驱动该模组**全部**大型多方块机器。搭好机器，把供应器贴着它的**控制器**放置，装入这一张卡，
+一个封包核心即可驱动该模组**全部**大型多方块机器。搭好机器，把供应器贴着它的**控制器**放置，装入这个封包核心，
 将配方做成样板即可——适配器会自动识别面对的是哪台机器。
 
 ## 覆盖的机器
@@ -27,4 +27,4 @@ navigation:
 
 * 机器运转仍需自身的**能量**。
 * 样板中的物品、流体与 Mekanism 化学品输入会自动送到对应端口。
-* 无论供应器面前是上述哪台机器，一张卡都通用。
+* 无论供应器面前是上述哪台机器，一个封包核心都通用。

@@ -86,8 +86,8 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
     @org.jetbrains.annotations.Nullable
     public net.minecraft.resources.ResourceLocation requiredAdapterId(ServerLevel level, BlockPos pos) {
         // Tier id matches the live block at the queried position. Higher-tier
-        // adapter cards cover all lower tiers via MultiblockAdapterItem.covers,
-        // so a single ec_ultimate card unlocks every EC table.
+        // packaged cores cover all lower tiers via MultiblockAdapterItem.covers,
+        // so a single ec_ultimate core unlocks every EC table.
         var spec = tableSpec(level.getBlockState(pos));
         if (spec == null) {
             return AdapterIds.EC_BASIC;

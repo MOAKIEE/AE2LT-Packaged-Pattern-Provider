@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 原子再构机
-  icon: aa_reconstructor_adapter
+  icon: aa_reconstructor_packaged_core
   position: 10
 ---
 
 # 原子再构机
 
-**所需适配卡：** <ItemLink id="ae2ltpp:aa_reconstructor_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:aa_reconstructor_packaged_core" />
 **来源模组：** Actually Additions（实用拓展）
 
 自动完成原子再构机的激光转化（一个输入物 → 一个输出物）。把供应器贴着原子再构机放置，

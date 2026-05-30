@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 赫菲斯托斯锻炉
-  icon: fa_hephaestus_forge_adapter
+  icon: fa_hephaestus_forge_packaged_core
   position: 100
 ---
 
 # 赫菲斯托斯锻炉
 
-**所需适配卡：** <ItemLink id="ae2ltpp:fa_hephaestus_forge_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:fa_hephaestus_forge_packaged_core" />
 **来源模组：** Forbidden Arcanus（禁忌与奥秘）
 
 自动完成赫菲斯托斯锻炉的仪式。把供应器贴着锻炉放置。适配器会把主材料放入锻炉、其余材料放到周围基座上，

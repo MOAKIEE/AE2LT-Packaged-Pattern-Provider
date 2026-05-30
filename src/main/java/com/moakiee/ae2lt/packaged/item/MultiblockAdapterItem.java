@@ -13,12 +13,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
 /**
- * Adapter "key card" for the packaged pattern provider.
+ * Packaged core item for the packaged pattern provider.
  *
  * <p>Each {@code MultiblockAdapterItem} declares one or more {@link #primaryId
- * primary adapter ids} it unlocks (e.g. {@code ae2ltpp:adapter/ec_ultimate}).
- * Higher-tier items also "cover" lower-tier ids in the same family (an
- * ultimate-table key card also unlocks elite/advanced/basic). The packaged
+ * primary adapter ids} it unlocks (e.g. {@code ae2ltpp:extendedcrafting/table_tier4_packaged_core}).
+ * Higher-tier items also cover lower-tier ids in the same family (an
+ * ultimate-table packaged core also unlocks elite/advanced/basic). The packaged
  * provider holds exactly one of these in its single adapter slot, so each
  * provider is locked to one machine family at a time.
  *
@@ -76,11 +76,11 @@ public class MultiblockAdapterItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.ae2ltpp.adapter.primary",
+        tooltip.add(Component.translatable("tooltip.ae2ltpp.packaged_core.primary",
                 Component.literal(primaryId.toString()).withStyle(ChatFormatting.AQUA))
                 .withStyle(ChatFormatting.GRAY));
         if (coveredIds.size() > 1) {
-            tooltip.add(Component.translatable("tooltip.ae2ltpp.adapter.covers",
+            tooltip.add(Component.translatable("tooltip.ae2ltpp.packaged_core.covers",
                     Component.literal(String.valueOf(coveredIds.size())).withStyle(ChatFormatting.GOLD))
                     .withStyle(ChatFormatting.DARK_GRAY));
         }

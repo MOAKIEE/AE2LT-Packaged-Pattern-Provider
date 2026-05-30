@@ -2,13 +2,13 @@
 navigation:
   parent: index.md
   title: 组合合成
-  icon: ec_combination_adapter
+  icon: ec_combination_packaged_core
   position: 90
 ---
 
 # 组合合成
 
-**所需适配卡：** <ItemLink id="ae2ltpp:ec_combination_adapter" />
+**所需封包核心：** <ItemLink id="ae2ltpp:ec_combination_packaged_core" />
 **来源模组：** Extended Crafting（扩展合成）
 
 自动完成组合合成。把供应器贴着**组合合成核心**放置。催化物放入核心、每个材料放到一个基座上，
