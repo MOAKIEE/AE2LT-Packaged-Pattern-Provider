@@ -1,5 +1,6 @@
 {
   "itemGroup.ae2ltpp": "AE2LT Packaged Pattern Provider",
+  "ae2ltpp.guide.title": "Packaged Provider Guide",
   "block.ae2ltpp.packaged_pattern_provider": "Packaged Pattern Provider",
   "block.ae2ltpp.wireless_packaged_pattern_provider": "Wireless Packaged Pattern Provider",
   "ae2ltpp.gui.title.packaged_pattern_provider": "Packaged Provider",

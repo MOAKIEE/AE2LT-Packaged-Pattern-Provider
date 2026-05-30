@@ -1,6 +1,7 @@
 {
   "fml.menu.mods.info.displayname.ae2ltpp": "闪电科技：封包",
   "itemGroup.ae2ltpp": "闪电科技：封包",
+  "ae2ltpp.guide.title": "封包供应器 · 适配指南",
   "block.ae2ltpp.packaged_pattern_provider": "封包样板供应器",
   "block.ae2ltpp.wireless_packaged_pattern_provider": "无线封包样板供应器",
   "ae2ltpp.gui.title.packaged_pattern_provider": "封包样板供应器",

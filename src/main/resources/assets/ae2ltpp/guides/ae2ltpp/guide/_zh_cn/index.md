@@ -1,0 +1,74 @@
+---
+navigation:
+  title: 封包供应器 · 适配指南
+  position: 0
+item_ids:
+- ae2ltpp:packaged_pattern_provider
+- ae2ltpp:wireless_packaged_pattern_provider
+---
+
+# 封包样板供应器 · 适配指南
+
+**封包样板供应器**（以及它的无线版本）可以让 AE2 自动合成去驱动**其它模组**的合成机器。
+只需在供应器里放入一张对应的**适配器卡片**，即可选择要驱动哪种机器。
+
+## 如何打开本指南
+
+* 输入命令 `/guideme open @s ae2ltpp:guide` 直接打开；或 `/guideme give @s ae2ltpp:guide` 获得一本可右键打开的指南书。
+* 或：按住 GuideME 的「打开指南」快捷键，同时把准星对准任意一台封包样板供应器。
+
+## 通用用法（所有机器都是这 4 步）
+
+1. 把（无线）封包样板供应器**贴着目标机器的主方块／核心**放置。
+2. 在供应器的**「适配器卡片」槽**里放入对应机器的适配卡。每台供应器同一时间只服务一种机器。
+3. 像普通样板供应器一样，把该机器的配方做成**样板**放进去（编码 输入 → 产物）。
+4. 当 AE2 请求该产物时，供应器会自动把材料送入机器（或瞬时合成），完成后产物自动回到你的 ME 网络。
+
+> 多方块机器仍需按它**本身的结构**搭好（注入器、基座、展示台、祭坛……），并把供应器贴在**主方块／核心**上。
+>
+> 带 **⚠** 标记的机器有额外注意事项——使用前请先看它的单独页面。
+
+## 已支持的机器
+
+### Actually Additions（实用拓展）
+* [原子再构机](atomic-reconstructor.md)
+* [充能台](empowerer.md)
+
+### Ars Nouveau（新生魔艺）
+* [附魔装置](enchanting-apparatus.md)
+* [灌注室](imbuement-chamber.md) ⚠
+
+### Draconic Evolution（龙之进化）
+* [聚合合成](fusion-crafting.md)
+
+### Extended Crafting（扩展合成）
+* [工作台 — 基础 / 高级 / 精英 / 终极](ec-tables.md)
+* [末影合成器](ender-crafter.md)
+* [通量合成器](flux-crafter.md)
+* [组合合成](combination-crafter.md)
+
+### Forbidden Arcanus（禁忌与奥秘）
+* [赫菲斯托斯锻炉](hephaestus-forge.md) ⚠
+* [克利巴诺熔炉](clibano.md) ⚠
+
+### Mystical Agriculture（神秘农业）
+* [注魔祭坛](infusion-altar.md)
+* [觉醒祭坛](awakening-altar.md) ⚠
+
+### Malum（恶意）
+* [精魂聚焦 — 灵魂坩埚](spirit-focusing.md) ⚠
+* [精魂灌注 — 灵魂祭坛](spirit-infusion.md)
+
+### Occultism（神秘学）
+* [神秘仪式](occultism-ritual.md) ⚠
+* [灵火](spirit-fire.md)
+
+### Mekanism: More Machines（通用机械：更多机器）
+* [大型机器 — 一卡通用](mekanism-more-machines.md)
+
+### Botania（植物魔法）
+* [花药台](petal-apothecary.md) ⚠
+* [魔力池](mana-pool.md) ⚠
+* [精灵传送门](alfheim-portal.md) ⚠
+* [泰拉凝聚板](terra-plate.md)
+* [符文祭坛](runic-altar.md) ⚠
