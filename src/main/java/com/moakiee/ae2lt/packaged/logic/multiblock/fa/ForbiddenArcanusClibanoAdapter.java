@@ -45,7 +45,7 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 /**
  * Runtime adapter for Forbidden &amp; Arcanus's Clibano &mdash; a 3×3×3
- * multiblock furnace with a single central {@code clibano_core} BE acting as
+ * multiblock furnace with a hidden {@code clibano_main_part} BE acting as
  * the entry point. The block exposes 7 slots:
  *
  * <pre>
@@ -72,7 +72,7 @@ public final class ForbiddenArcanusClibanoAdapter implements MultiblockAdapter {
     private static final Logger LOG = LoggerFactory.getLogger("ae2ltpp/fa-clibano");
 
     private static final String MOD_ID = "forbidden_arcanus";
-    private static final ResourceLocation CORE_BLOCK = faId("clibano_core");
+    private static final ResourceLocation MAIN_PART_BLOCK = faId("clibano_main_part");
     private static final ResourceLocation RECIPE_TYPE_ID = faId("clibano_combustion");
 
     private static final int INPUT_SLOT_A = 3;
@@ -88,7 +88,7 @@ public final class ForbiddenArcanusClibanoAdapter implements MultiblockAdapter {
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isFaLoaded() && blockId(be.getBlockState()).equals(CORE_BLOCK);
+        return be != null && isFaLoaded() && blockId(be.getBlockState()).equals(MAIN_PART_BLOCK);
     }
 
     @Override
@@ -245,7 +245,7 @@ public final class ForbiddenArcanusClibanoAdapter implements MultiblockAdapter {
                 return 0L;
             }
             var be = level.getBlockEntity(pos);
-            if (be == null || !blockId(be.getBlockState()).equals(CORE_BLOCK)) {
+            if (be == null || !blockId(be.getBlockState()).equals(MAIN_PART_BLOCK)) {
                 return 0L;
             }
             var handler = ClibanoReflection.getItemHandler(be);

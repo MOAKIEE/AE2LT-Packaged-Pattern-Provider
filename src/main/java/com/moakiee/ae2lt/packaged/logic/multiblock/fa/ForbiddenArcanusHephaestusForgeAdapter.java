@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
@@ -75,8 +76,15 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
     private static final Logger LOG = LoggerFactory.getLogger("ae2ltpp/fa-hephaestus-forge");
 
     private static final String MOD_ID = "forbidden_arcanus";
-    private static final ResourceLocation FORGE_BLOCK = faId("hephaestus_forge");
-    private static final ResourceLocation PEDESTAL_BLOCK = faId("pedestal");
+    private static final Set<ResourceLocation> FORGE_BLOCKS = Set.of(
+            faId("hephaestus_forge_tier_1"),
+            faId("hephaestus_forge_tier_2"),
+            faId("hephaestus_forge_tier_3"),
+            faId("hephaestus_forge_tier_4"),
+            faId("hephaestus_forge_tier_5"));
+    private static final Set<ResourceLocation> PEDESTAL_BLOCKS = Set.of(
+            faId("darkstone_pedestal"),
+            faId("magnetized_darkstone_pedestal"));
     private static final ResourceLocation RITUAL_REGISTRY_PATH = faId("ritual");
     private static final ResourceKey<Registry<Object>> RITUAL_REGISTRY_KEY =
             ResourceKey.createRegistryKey(RITUAL_REGISTRY_PATH);
@@ -93,7 +101,7 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
 
     @Override
     public boolean recognizesMain(ServerLevel level, BlockPos pos, BlockEntity be) {
-        return be != null && isFaLoaded() && blockId(be.getBlockState()).equals(FORGE_BLOCK);
+        return be != null && isFaLoaded() && isForgeBlock(be.getBlockState());
     }
 
     @Override
@@ -291,7 +299,7 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
                 return 0L;
             }
             var be = level.getBlockEntity(pos);
-            if (be == null || !blockId(be.getBlockState()).equals(FORGE_BLOCK)) {
+            if (be == null || !isForgeBlock(be.getBlockState())) {
                 return 0L;
             }
             var handler = FaReflection.getItemHandler(be);
@@ -316,7 +324,7 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
                 return 0L;
             }
             var be = level.getBlockEntity(pos);
-            if (be == null || !blockId(be.getBlockState()).equals(PEDESTAL_BLOCK)) {
+            if (be == null || !isPedestalBlock(be.getBlockState())) {
                 return 0L;
             }
             if (!FaReflection.pedestalEmpty(be)) {
@@ -430,7 +438,7 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
                     cursor.set(mainPos.getX() + x, mainPos.getY() + y, mainPos.getZ() + z);
                     if (cursor.equals(mainPos)) continue;
                     if (!level.isLoaded(cursor)) continue;
-                    if (!blockId(level.getBlockState(cursor)).equals(PEDESTAL_BLOCK)) continue;
+                    if (!isPedestalBlock(level.getBlockState(cursor))) continue;
                     var be = level.getBlockEntity(cursor);
                     if (be == null) continue;
                     if (!FaReflection.pedestalEmpty(be)) continue;
@@ -526,6 +534,14 @@ public final class ForbiddenArcanusHephaestusForgeAdapter implements MultiblockA
 
     private static ResourceLocation blockId(BlockState state) {
         return BuiltInRegistries.BLOCK.getKey(state.getBlock());
+    }
+
+    private static boolean isForgeBlock(BlockState state) {
+        return FORGE_BLOCKS.contains(blockId(state));
+    }
+
+    private static boolean isPedestalBlock(BlockState state) {
+        return PEDESTAL_BLOCKS.contains(blockId(state));
     }
 
     private static ResourceLocation faId(String path) {
