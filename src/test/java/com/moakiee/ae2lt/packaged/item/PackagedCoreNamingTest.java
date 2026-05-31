@@ -75,6 +75,8 @@ class PackagedCoreNamingTest {
         var en = read("src/main/resources/assets/ae2ltpp/lang/en_us.json");
         var zh = read("src/main/resources/assets/ae2ltpp/lang/zh_cn.json");
 
+        assertTrue(en.contains("\"ae2ltpp.guide.title\": \"AE2LT Packaged Pattern Provider\""));
+        assertTrue(zh.contains("\"ae2ltpp.guide.title\": \"闪电科技：封包\""));
         assertTrue(en.contains("\"ae2ltpp.gui.adapter_slot\": \"Packaged Core\""));
         assertTrue(zh.contains("\"ae2ltpp.gui.adapter_slot\": \"封包核心\""));
         for (var id : EXPECTED_ITEM_IDS) {
@@ -90,7 +92,7 @@ class PackagedCoreNamingTest {
 
     @Test
     void guideItemLinksUsePackagedCoreIds() throws IOException {
-        var guide = readTree("src/main/resources/assets/ae2ltpp/guides");
+        var guide = readTree("src/main/resources/assets/ae2ltpp/ae2guide");
         for (var id : EXPECTED_ITEM_IDS) {
             assertTrue(guide.contains("ae2ltpp:" + id), id);
         }
@@ -98,10 +100,37 @@ class PackagedCoreNamingTest {
         assertFalse(guide.contains("Adapter card"));
         assertFalse(guide.contains("Adapter cards"));
         assertFalse(guide.contains("Adapter Card"));
+        assertFalse(Pattern.compile("\\badapters?\\b", Pattern.CASE_INSENSITIVE).matcher(guide).find());
         assertFalse(guide.contains("适配器卡片"));
+        assertFalse(guide.contains("适配器"));
         assertFalse(guide.contains("适配卡"));
         assertFalse(Pattern.compile("ae2ltpp:[a-z0-9_]+_adapter").matcher(guide).find());
         assertFalse(Pattern.compile("icon: [a-z0-9_]+_adapter").matcher(guide).find());
+    }
+
+    @Test
+    void guideItemLinksResolveToTheirPages() throws IOException {
+        assertItemLinksDeclaredAsPageItems(Path.of("src/main/resources/assets/ae2ltpp/ae2guide"));
+        assertItemLinksDeclaredAsPageItems(Path.of("src/main/resources/assets/ae2ltpp/ae2guide/_zh_cn"));
+    }
+
+    @Test
+    void guideIsMountedInAe2GuideAfterMainMod() throws IOException {
+        assertFalse(Files.exists(Path.of("src/main/resources/assets/ae2ltpp/guideme_guides/guide.json")));
+
+        var enIndex = read("src/main/resources/assets/ae2ltpp/ae2guide/index.md");
+        var zhIndex = read("src/main/resources/assets/ae2ltpp/ae2guide/_zh_cn/index.md");
+
+        assertTrue(enIndex.contains("title: AE2LT Packaged Pattern Provider"));
+        assertTrue(enIndex.contains("position: 67"));
+        assertTrue(enIndex.contains("# AE2LT Packaged Pattern Provider"));
+        assertTrue(enIndex.contains("ae2:guide"));
+        assertFalse(enIndex.contains("ae2ltpp:guide"));
+        assertTrue(zhIndex.contains("title: 闪电科技：封包"));
+        assertTrue(zhIndex.contains("position: 67"));
+        assertTrue(zhIndex.contains("# 闪电科技：封包"));
+        assertTrue(zhIndex.contains("ae2:guide"));
+        assertFalse(zhIndex.contains("ae2ltpp:guide"));
     }
 
     private static String read(String path) throws IOException {
@@ -117,5 +146,20 @@ class PackagedCoreNamingTest {
             }
         }
         return builder.toString();
+    }
+
+    private static void assertItemLinksDeclaredAsPageItems(Path root) throws IOException {
+        var itemLinkPattern = Pattern.compile("<ItemLink id=\"(ae2ltpp:[^\"]+_packaged_core)\"\\s*/>");
+        try (var files = Files.walk(root)) {
+            for (var file : files.filter(Files::isRegularFile).sorted().toList()) {
+                var page = Files.readString(file);
+                var matcher = itemLinkPattern.matcher(page);
+                while (matcher.find()) {
+                    var itemId = matcher.group(1);
+                    assertTrue(page.contains("item_ids:"), file + " links " + itemId);
+                    assertTrue(page.contains("- " + itemId), file + " links " + itemId);
+                }
+            }
+        }
     }
 }
