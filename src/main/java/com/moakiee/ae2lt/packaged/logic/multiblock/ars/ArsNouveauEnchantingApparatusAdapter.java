@@ -38,6 +38,7 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
@@ -386,7 +387,10 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
 
     private static int sourceCost(Object recipe) {
         try {
-            Method method = recipe.getClass().getMethod("sourceCost");
+            Method method = ReflectionSupport.findMethodCached(recipe.getClass(), "sourceCost").orElse(null);
+            if (method == null) {
+                return -1;
+            }
             Object value = method.invoke(recipe);
             return value instanceof Number number ? number.intValue() : -1;
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
@@ -462,7 +466,8 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
 
     private static boolean isCrafting(BlockEntity be) {
         try {
-            return be.getClass().getField("isCrafting").getBoolean(be);
+            var field = ReflectionSupport.findFieldCached(be.getClass(), "isCrafting").orElse(null);
+            return field != null && field.getBoolean(be);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return true;
         }

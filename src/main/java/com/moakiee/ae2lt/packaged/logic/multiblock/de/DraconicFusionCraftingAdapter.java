@@ -33,6 +33,7 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
@@ -620,10 +621,15 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
                 if (getCustomIngredientMethod == null) return 1;
                 var custom = getCustomIngredientMethod.invoke(ing);
                 if (custom == null) return 1;
-                var stackIngClass = Class.forName(STACK_INGREDIENT_CLASS);
+                var stackIngClass = ReflectionSupport.findClassCached(STACK_INGREDIENT_CLASS).orElse(null);
+                if (stackIngClass == null) return 1;
                 if (!stackIngClass.isInstance(custom)) return 1;
                 if (stackIngredientCountMethod == null) {
-                    stackIngredientCountMethod = stackIngClass.getMethod("getCount");
+                    stackIngredientCountMethod = ReflectionSupport.findMethodCached(stackIngClass, "getCount")
+                            .orElse(null);
+                }
+                if (stackIngredientCountMethod == null) {
+                    return 1;
                 }
                 var count = stackIngredientCountMethod.invoke(custom);
                 return count instanceof Number n ? n.intValue() : 1;

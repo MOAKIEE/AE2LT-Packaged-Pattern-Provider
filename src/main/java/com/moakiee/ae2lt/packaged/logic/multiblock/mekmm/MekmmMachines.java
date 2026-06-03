@@ -8,12 +8,14 @@ import static com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec
 import static com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortType.FLUID;
 import static com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortType.ITEM;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortDef;
 import com.moakiee.ae2lt.packaged.logic.multiblock.mekmm.MekmmMachineSpec.PortGroup;
 
@@ -113,8 +115,10 @@ final class MekmmMachines {
     private static ToIntFunction<BlockEntity> rotaryModeSelector() {
         return be -> {
             try {
-                var field = be.getClass().getDeclaredField("mode");
-                field.setAccessible(true);
+                Field field = ReflectionSupport.findDeclaredFieldCached(be.getClass(), "mode").orElse(null);
+                if (field == null) {
+                    return 0;
+                }
                 return ((boolean) field.get(be)) ? 1 : 0;
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 return 0;

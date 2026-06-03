@@ -37,6 +37,7 @@ import com.moakiee.ae2lt.logic.AllowedOutputFilter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.DispatchPlan;
 import com.moakiee.ae2lt.packaged.logic.multiblock.InsertionStrategy;
 import com.moakiee.ae2lt.packaged.logic.multiblock.MultiblockAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 import com.moakiee.ae2lt.packaged.logic.multiblock.TargetSlot;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingMode;
 import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
@@ -851,16 +852,20 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
 
         static boolean hasValidPentacle(Object recipe, Level level, BlockPos pos) {
             var pentacle = getPentacle(recipe);
-            if (pentacle == null) {
-                return false;
-            }
-            try {
-                var validate = pentacle.getClass().getMethod("validate", Level.class, BlockPos.class);
-                return validate.invoke(pentacle, level, pos) != null;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                return false;
-            }
+        if (pentacle == null) {
+            return false;
         }
+        try {
+            var validate = ReflectionSupport.findMethodCached(pentacle.getClass(), "validate", Level.class, BlockPos.class)
+                    .orElse(null);
+            if (validate == null) {
+                return false;
+            }
+            return validate.invoke(pentacle, level, pos) != null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return false;
+        }
+    }
 
         @Nullable
         static List<?> getSacrificialBowls(Object recipe, Level level, BlockPos pos) {

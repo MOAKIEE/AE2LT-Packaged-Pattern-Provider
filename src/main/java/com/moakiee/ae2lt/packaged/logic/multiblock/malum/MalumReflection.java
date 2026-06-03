@@ -168,11 +168,10 @@ final class MalumReflection {
     }
 
     static boolean insertItem(ServerLevel level, IItemHandlerModifiable inventory, int fallbackSlot, ItemStack stack) {
-        var insertMethod = ReflectionSupport.findMethod(inventory.getClass(), "insertItem", ServerLevel.class, ItemStack.class);
+        var insertMethod = ReflectionSupport.findMethodCached(inventory.getClass(), "insertItem", ServerLevel.class, ItemStack.class);
         if (insertMethod.isPresent()) {
             try {
                 var method = insertMethod.get();
-                method.setAccessible(true);
                 var submitted = stack.copy();
                 var result = ReflectionSupport.invoke(method, inventory, level, submitted);
                 return result.isPresent()
@@ -182,11 +181,10 @@ final class MalumReflection {
             }
         }
 
-        insertMethod = ReflectionSupport.findMethod(inventory.getClass(), "insertItem", ItemStack.class);
+        insertMethod = ReflectionSupport.findMethodCached(inventory.getClass(), "insertItem", ItemStack.class);
         if (insertMethod.isPresent()) {
             try {
                 var method = insertMethod.get();
-                method.setAccessible(true);
                 var submitted = stack.copy();
                 var result = ReflectionSupport.invoke(method, inventory, submitted);
                 return result.isPresent()
@@ -196,11 +194,10 @@ final class MalumReflection {
             }
         }
 
-        insertMethod = ReflectionSupport.findMethod(inventory.getClass(), "insertItem", ItemStack.class, boolean.class);
+        insertMethod = ReflectionSupport.findMethodCached(inventory.getClass(), "insertItem", ItemStack.class, boolean.class);
         if (insertMethod.isPresent()) {
             try {
                 var method = insertMethod.get();
-                method.setAccessible(true);
                 var submitted = stack.copy();
                 var result = ReflectionSupport.invoke(method, inventory, submitted, false);
                 return result.isPresent()
@@ -293,8 +290,10 @@ final class MalumReflection {
 
     private static Optional<Object> invokeNoArg(Object target, String methodName) {
         try {
-            var method = target.getClass().getMethod(methodName);
-            method.setAccessible(true);
+            var method = ReflectionSupport.findMethodCached(target.getClass(), methodName).orElse(null);
+            if (method == null) {
+                return Optional.empty();
+            }
             return Optional.ofNullable(method.invoke(target));
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return Optional.empty();
@@ -312,7 +311,6 @@ final class MalumReflection {
             }
             try {
                 var refresh = method.get();
-                refresh.setAccessible(true);
                 ReflectionSupport.invoke(refresh, inventory);
                 return;
             } catch (RuntimeException | LinkageError ignored) {
@@ -572,9 +570,9 @@ final class MalumReflection {
         getAccessPointBlockPosMethod = requiredMethod(accessPointClass, "getAccessPointBlockPos");
         infusionGetOutputMethod = requiredMethod(infusionRecipeClass, "getOutput", ServerLevel.class, ItemStack.class);
         spiritAsItemStackMethod = requiredMethod(spiritIngredientClass, "asItemStack");
-        focusingGetInputMethod = ReflectionSupport.findMethod(focusingRecipeClass, "getInput").orElse(null);
-        focusingGetSpiritsMethod = ReflectionSupport.findMethod(focusingRecipeClass, "getSpirits").orElse(null);
-        focusingCreateOutputMethod = ReflectionSupport.findMethod(focusingRecipeClass, "createOutput").orElse(null);
+        focusingGetInputMethod = ReflectionSupport.findMethodCached(focusingRecipeClass, "getInput").orElse(null);
+        focusingGetSpiritsMethod = ReflectionSupport.findMethodCached(focusingRecipeClass, "getSpirits").orElse(null);
+        focusingCreateOutputMethod = ReflectionSupport.findMethodCached(focusingRecipeClass, "createOutput").orElse(null);
     }
 
     private static Field field(Class<?> type, String name) throws NoSuchFieldException {
@@ -593,20 +591,18 @@ final class MalumReflection {
     private static Optional<Method> methodInHierarchy(Class<?> type, String name, Class<?>... parameterTypes) {
         var current = type;
         while (current != null) {
-            try {
-                var method = current.getDeclaredMethod(name, parameterTypes);
-                method.setAccessible(true);
-                return Optional.of(method);
-            } catch (NoSuchMethodException | SecurityException ignored) {
-                current = current.getSuperclass();
+            var method = ReflectionSupport.findDeclaredMethodCached(current, name, parameterTypes);
+            if (method.isPresent()) {
+                return method;
             }
+            current = current.getSuperclass();
         }
         return Optional.empty();
     }
 
     private static Class<?> requiredClass(String... classNames) throws ClassNotFoundException {
         for (var className : classNames) {
-            var found = ReflectionSupport.findClass(className);
+            var found = ReflectionSupport.findClassCached(className);
             if (found.isPresent()) {
                 return found.get();
             }
@@ -616,7 +612,7 @@ final class MalumReflection {
 
     private static Method requiredMethod(Class<?> type, String name, Class<?>... parameterTypes)
             throws NoSuchMethodException {
-        return ReflectionSupport.findMethod(type, name, parameterTypes)
+        return ReflectionSupport.findMethodCached(type, name, parameterTypes)
                 .orElseThrow(() -> new NoSuchMethodException(type.getName() + "#" + name));
     }
 

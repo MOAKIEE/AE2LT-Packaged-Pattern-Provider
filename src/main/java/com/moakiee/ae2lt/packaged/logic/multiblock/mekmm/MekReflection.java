@@ -16,6 +16,8 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
+
 final class MekReflection {
 
     private static final Logger LOG = LogUtils.getLogger();
@@ -54,12 +56,9 @@ final class MekReflection {
 
     static boolean isTileEntityClass(Object o, String className) {
         ensureLookup();
-        try {
-            Class<?> clazz = Class.forName(className);
-            return clazz.isInstance(o);
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            return false;
-        }
+        return ReflectionSupport.findClassCached(className)
+                .map(clazz -> clazz.isInstance(o))
+                .orElse(false);
     }
 
     static boolean isBoundingBlock(BlockEntity be) {
@@ -209,24 +208,33 @@ final class MekReflection {
 
     private static void doLookup() {
         try {
-            tileEntityMekanismClass = Class.forName("mekanism.common.tile.base.TileEntityMekanism");
+            tileEntityMekanismClass = ReflectionSupport.findClassCached("mekanism.common.tile.base.TileEntityMekanism")
+                    .orElse(null);
+            if (tileEntityMekanismClass == null) {
+                throw new ClassNotFoundException("mekanism.common.tile.base.TileEntityMekanism");
+            }
             isActiveMethod = MekCapabilityReflection.findZeroArgMethod(tileEntityMekanismClass, "getActive", "isActive");
             if (isActiveMethod == null) {
-                LOG.warn("[ae2ltpp] Failed to resolve TileEntityMekanism active getter");
+                throw new NoSuchMethodException("mekanism.common.tile.base.TileEntityMekanism#getActive/isActive");
             }
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOG.warn("[ae2ltpp] Failed to resolve TileEntityMekanism: {}", e.getMessage());
         }
 
         try {
-            boundingBlockClass = Class.forName("mekanism.common.tile.TileEntityBoundingBlock");
+            boundingBlockClass = ReflectionSupport.findClassCached("mekanism.common.tile.TileEntityBoundingBlock")
+                    .orElse(null);
             getMainPosMethod = boundingBlockClass.getMethod("getMainPos");
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             LOG.warn("[ae2ltpp] Failed to resolve TileEntityBoundingBlock: {}", e.getMessage());
         }
 
         try {
-            Class<?> capabilitiesClass = Class.forName("mekanism.common.capabilities.Capabilities");
+            Class<?> capabilitiesClass = ReflectionSupport.findClassCached("mekanism.common.capabilities.Capabilities")
+                    .orElse(null);
+            if (capabilitiesClass == null) {
+                throw new ClassNotFoundException("mekanism.common.capabilities.Capabilities");
+            }
             Field chemicalField = capabilitiesClass.getField("CHEMICAL");
             Object chemicalCapability = chemicalField.get(null);
             chemicalBlockCapability = resolveBlockCapability(chemicalCapability);
@@ -241,10 +249,12 @@ final class MekReflection {
         }
 
         try {
-            chemicalHandlerClass = Class.forName("mekanism.api.chemical.IChemicalHandler");
-            chemicalStackClass = Class.forName("mekanism.api.chemical.ChemicalStack");
+            chemicalHandlerClass = ReflectionSupport.findClassCached("mekanism.api.chemical.IChemicalHandler")
+                    .orElse(null);
+            chemicalStackClass = ReflectionSupport.findClassCached("mekanism.api.chemical.ChemicalStack")
+                    .orElse(null);
 
-            actionClass = Class.forName("mekanism.api.Action");
+            actionClass = ReflectionSupport.findClassCached("mekanism.api.Action").orElse(null);
             Object[] actions = actionClass.getEnumConstants();
             for (Object a : actions) {
                 if (a.toString().equals("SIMULATE")) actionSimulate = a;

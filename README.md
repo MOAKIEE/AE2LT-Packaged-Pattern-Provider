@@ -149,7 +149,7 @@ These entries reflect source code present in the repository, not a blanket state
 - The project still depends on a local or environment-provided AE2LT jar unless AE2 Lightning Tech publishes a stable Maven coordinate for this target.
 - The AE2 official `1.21.1` branch and the addon / AE2LT projects currently observe different NeoForge patch versions.
 - `PackagedPatternProviderLogic` dispatch fallback and registry hardening are in place, but test coverage is still focused on targeted regression paths rather than broad integration scenarios.
-- Optional-mod reflection handling is only partially unified so far; `InfusionAltarAdapter` is the current `ReflectionSupport` pilot, while the remaining optional-mod adapters still use their existing guarded reflection helpers. New hot-path adapters should prefer `MethodHandle`-based helpers where it keeps optional-mod failure handling simple.
+- Optional-mod reflection handling is still mixed, but the cached lookup helper now covers several hot-path adapters. New optional-mod hot paths should prefer cached lookup helpers first, and only move to `MethodHandle` / `VarHandle` when profiling shows a real win.
 - Full CI success depends on being able to build or otherwise provide the AE2LT jar first.
 
 ## Troubleshooting

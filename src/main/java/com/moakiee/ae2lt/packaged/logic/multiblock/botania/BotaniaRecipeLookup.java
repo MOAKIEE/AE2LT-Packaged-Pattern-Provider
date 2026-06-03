@@ -18,6 +18,7 @@ import appeng.api.stacks.AEItemKey;
 
 import com.moakiee.ae2lt.overload.model.MatchMode;
 import com.moakiee.ae2lt.overload.pattern.OverloadedProviderOnlyPatternDetails;
+import com.moakiee.ae2lt.packaged.logic.multiblock.ReflectionSupport;
 
 /**
  * Centralised Botania recipe lookups + pattern-output validation.
@@ -438,7 +439,10 @@ public final class BotaniaRecipeLookup {
             return List.of();
         }
         try {
-            var m = recipe.getClass().getMethod("getOutputs");
+            var m = ReflectionSupport.findMethodCached(recipe.getClass(), "getOutputs").orElse(null);
+            if (m == null) {
+                return List.of();
+            }
             var v = m.invoke(recipe);
             return v instanceof List<?> list ? (List<ItemStack>) list : List.of();
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
@@ -468,7 +472,10 @@ public final class BotaniaRecipeLookup {
     @Nullable
     public static Object manaInfusionCatalyst(Object recipe) {
         try {
-            var m = recipe.getClass().getMethod("getRecipeCatalyst");
+            var m = ReflectionSupport.findMethodCached(recipe.getClass(), "getRecipeCatalyst").orElse(null);
+            if (m == null) {
+                return null;
+            }
             return m.invoke(recipe);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return null;
