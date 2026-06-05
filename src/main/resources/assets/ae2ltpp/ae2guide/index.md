@@ -75,3 +75,7 @@ crafting machines from **other mods**. You choose which machine by inserting a s
 * [Alfheim Portal](alfheim-portal.md) ⚠
 * [Terra Plate](terra-plate.md)
 * [Runic Altar](runic-altar.md) ⚠
+
+### Re-Avaritia
+* [Crafting Tables — Sculk / Nether / End / Extreme](avaritia-tables.md)
+* [Extreme Smithing Table](avaritia-extreme-smithing.md)

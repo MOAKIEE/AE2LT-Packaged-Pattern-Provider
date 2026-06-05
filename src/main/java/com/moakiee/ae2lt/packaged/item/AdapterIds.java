@@ -91,6 +91,16 @@ public final class AdapterIds {
             id("botania/terra_plate_packaged_core");
     public static final ResourceLocation BOTANIA_RUNIC_ALTAR =
             id("botania/runic_altar_packaged_core");
+    public static final ResourceLocation AVARITIA_SCULK_TABLE =
+            id("avaritia/crafting_table_tier1_packaged_core");
+    public static final ResourceLocation AVARITIA_NETHER_TABLE =
+            id("avaritia/crafting_table_tier2_packaged_core");
+    public static final ResourceLocation AVARITIA_END_TABLE =
+            id("avaritia/crafting_table_tier3_packaged_core");
+    public static final ResourceLocation AVARITIA_EXTREME_TABLE =
+            id("avaritia/crafting_table_tier4_packaged_core");
+    public static final ResourceLocation AVARITIA_EXTREME_SMITHING =
+            id("avaritia/extreme_smithing_packaged_core");
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(AE2LTPackagedProvider.MODID, path);

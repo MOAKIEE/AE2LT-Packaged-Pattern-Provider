@@ -32,6 +32,11 @@
   "item.ae2ltpp.botania_alfheim_portal_packaged_core": "Alfheim Portal Packaged Core",
   "item.ae2ltpp.botania_terra_plate_packaged_core": "Terra Plate Packaged Core",
   "item.ae2ltpp.botania_runic_altar_packaged_core": "Runic Altar Packaged Core",
+  "item.ae2ltpp.avaritia_sculk_table_packaged_core": "Sculk Crafting Table Packaged Core",
+  "item.ae2ltpp.avaritia_nether_table_packaged_core": "Nether Crafting Table Packaged Core",
+  "item.ae2ltpp.avaritia_end_table_packaged_core": "End Crafting Table Packaged Core",
+  "item.ae2ltpp.avaritia_extreme_table_packaged_core": "Extreme Crafting Table Packaged Core",
+  "item.ae2ltpp.avaritia_extreme_smithing_packaged_core": "Extreme Smithing Table Packaged Core",
   "tooltip.ae2ltpp.packaged_core.primary": "Unlocks: %s",
   "tooltip.ae2ltpp.packaged_core.covers": "Covers %s packaged cores"
 }

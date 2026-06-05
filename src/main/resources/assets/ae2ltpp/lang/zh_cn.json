@@ -33,6 +33,11 @@
   "item.ae2ltpp.botania_alfheim_portal_packaged_core": "精灵传送门封包核心",
   "item.ae2ltpp.botania_terra_plate_packaged_core": "泰拉凝聚板封包核心",
   "item.ae2ltpp.botania_runic_altar_packaged_core": "符文祭坛封包核心",
+  "item.ae2ltpp.avaritia_sculk_table_packaged_core": "幽匿工作台封包核心",
+  "item.ae2ltpp.avaritia_nether_table_packaged_core": "炼狱工作台封包核心",
+  "item.ae2ltpp.avaritia_end_table_packaged_core": "终末工作台封包核心",
+  "item.ae2ltpp.avaritia_extreme_table_packaged_core": "终焉工作台封包核心",
+  "item.ae2ltpp.avaritia_extreme_smithing_packaged_core": "终焉锻造台封包核心",
   "tooltip.ae2ltpp.packaged_core.primary": "解锁: %s",
   "tooltip.ae2ltpp.packaged_core.covers": "向下兼容 %s 种封包核心"
 }

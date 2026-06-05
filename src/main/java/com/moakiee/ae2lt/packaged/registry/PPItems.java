@@ -153,6 +153,33 @@ public final class PPItems {
                     AdapterIds.BOTANIA_RUNIC_ALTAR,
                     Set.of(AdapterIds.BOTANIA_RUNIC_ALTAR));
 
+    public static final DeferredItem<MultiblockAdapterItem> AVARITIA_SCULK_TABLE_ADAPTER =
+            registerPackagedCore("avaritia_sculk_table_packaged_core",
+                    AdapterIds.AVARITIA_SCULK_TABLE,
+                    Set.of(AdapterIds.AVARITIA_SCULK_TABLE));
+
+    public static final DeferredItem<MultiblockAdapterItem> AVARITIA_NETHER_TABLE_ADAPTER =
+            registerPackagedCore("avaritia_nether_table_packaged_core",
+                    AdapterIds.AVARITIA_NETHER_TABLE,
+                    chain(AdapterIds.AVARITIA_SCULK_TABLE, AdapterIds.AVARITIA_NETHER_TABLE));
+
+    public static final DeferredItem<MultiblockAdapterItem> AVARITIA_END_TABLE_ADAPTER =
+            registerPackagedCore("avaritia_end_table_packaged_core",
+                    AdapterIds.AVARITIA_END_TABLE,
+                    chain(AdapterIds.AVARITIA_SCULK_TABLE, AdapterIds.AVARITIA_NETHER_TABLE,
+                            AdapterIds.AVARITIA_END_TABLE));
+
+    public static final DeferredItem<MultiblockAdapterItem> AVARITIA_EXTREME_TABLE_ADAPTER =
+            registerPackagedCore("avaritia_extreme_table_packaged_core",
+                    AdapterIds.AVARITIA_EXTREME_TABLE,
+                    chain(AdapterIds.AVARITIA_SCULK_TABLE, AdapterIds.AVARITIA_NETHER_TABLE,
+                            AdapterIds.AVARITIA_END_TABLE, AdapterIds.AVARITIA_EXTREME_TABLE));
+
+    public static final DeferredItem<MultiblockAdapterItem> AVARITIA_EXTREME_SMITHING_ADAPTER =
+            registerPackagedCore("avaritia_extreme_smithing_packaged_core",
+                    AdapterIds.AVARITIA_EXTREME_SMITHING,
+                    Set.of(AdapterIds.AVARITIA_EXTREME_SMITHING));
+
     private PPItems() {
     }
 

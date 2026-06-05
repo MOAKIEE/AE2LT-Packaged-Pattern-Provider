@@ -73,3 +73,7 @@ item_ids:
 * [精灵传送门](alfheim-portal.md) ⚠
 * [泰拉凝聚板](terra-plate.md)
 * [符文祭坛](runic-altar.md) ⚠
+
+### Re-Avaritia（无尽贪婪）
+* [工作台 — 幽匿 / 炼狱 / 终末 / 终焉](avaritia-tables.md)
+* [终焉锻造台](avaritia-extreme-smithing.md)

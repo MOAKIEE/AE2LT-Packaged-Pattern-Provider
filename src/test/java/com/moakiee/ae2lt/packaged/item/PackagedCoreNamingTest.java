@@ -43,7 +43,12 @@ class PackagedCoreNamingTest {
             "botania_mana_pool_packaged_core",
             "botania_alfheim_portal_packaged_core",
             "botania_terra_plate_packaged_core",
-            "botania_runic_altar_packaged_core");
+            "botania_runic_altar_packaged_core",
+            "avaritia_sculk_table_packaged_core",
+            "avaritia_nether_table_packaged_core",
+            "avaritia_end_table_packaged_core",
+            "avaritia_extreme_table_packaged_core",
+            "avaritia_extreme_smithing_packaged_core");
 
     @Test
     void itemRegistryNamesUsePackagedCoreSuffix() throws IOException {

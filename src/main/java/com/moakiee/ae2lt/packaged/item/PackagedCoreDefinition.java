@@ -27,6 +27,7 @@ public record PackagedCoreDefinition(
     private static final String OCCULTISM = "occultism";
     private static final String MEKANISM_MORE_MACHINE = "mekmm";
     private static final String BOTANIA = "botania";
+    private static final String AVARITIA = "avaritia";
 
     private static final List<PackagedCoreDefinition> ALL = List.of(
             core("aa_reconstructor_packaged_core", ACTUALLY_ADDITIONS, "atomic_reconstructor"),
@@ -54,7 +55,12 @@ public record PackagedCoreDefinition(
             core("botania_mana_pool_packaged_core", BOTANIA, "mana_pool"),
             core("botania_alfheim_portal_packaged_core", BOTANIA, "alfheim_portal"),
             core("botania_terra_plate_packaged_core", BOTANIA, "terra_plate"),
-            core("botania_runic_altar_packaged_core", BOTANIA, "runic_altar"));
+            core("botania_runic_altar_packaged_core", BOTANIA, "runic_altar"),
+            core("avaritia_sculk_table_packaged_core", AVARITIA, "sculk_crafting_table"),
+            core("avaritia_nether_table_packaged_core", AVARITIA, "nether_crafting_table"),
+            core("avaritia_end_table_packaged_core", AVARITIA, "end_crafting_table"),
+            core("avaritia_extreme_table_packaged_core", AVARITIA, "extreme_crafting_table"),
+            core("avaritia_extreme_smithing_packaged_core", AVARITIA, "extreme_smithing_table"));
 
     public static List<PackagedCoreDefinition> all() {
         return ALL;
@@ -94,6 +100,11 @@ public record PackagedCoreDefinition(
             case "botania_alfheim_portal_packaged_core" -> PPItems.BOTANIA_ALFHEIM_PORTAL_ADAPTER;
             case "botania_terra_plate_packaged_core" -> PPItems.BOTANIA_TERRA_PLATE_ADAPTER;
             case "botania_runic_altar_packaged_core" -> PPItems.BOTANIA_RUNIC_ALTAR_ADAPTER;
+            case "avaritia_sculk_table_packaged_core" -> PPItems.AVARITIA_SCULK_TABLE_ADAPTER;
+            case "avaritia_nether_table_packaged_core" -> PPItems.AVARITIA_NETHER_TABLE_ADAPTER;
+            case "avaritia_end_table_packaged_core" -> PPItems.AVARITIA_END_TABLE_ADAPTER;
+            case "avaritia_extreme_table_packaged_core" -> PPItems.AVARITIA_EXTREME_TABLE_ADAPTER;
+            case "avaritia_extreme_smithing_packaged_core" -> PPItems.AVARITIA_EXTREME_SMITHING_ADAPTER;
             default -> throw new IllegalStateException("Unknown packaged core item id: " + itemId);
         };
     }

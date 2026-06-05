@@ -24,6 +24,8 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsAtomicRec
 import com.moakiee.ae2lt.packaged.logic.multiblock.aa.ActuallyAdditionsEmpowererAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauEnchantingApparatusAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.ars.ArsNouveauImbuementChamberAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.avaritia.AvaritiaExtremeSmithingAdapter;
+import com.moakiee.ae2lt.packaged.logic.multiblock.avaritia.AvaritiaTableAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.botania.AlfheimPortalAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.botania.ManaPoolAdapter;
 import com.moakiee.ae2lt.packaged.logic.multiblock.botania.PetalApothecaryAdapter;
@@ -76,6 +78,8 @@ public class AE2LTPackagedProvider {
             MultiblockAdapterRegistry.register(new ExtendedCraftingEnderCrafterAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingFluxCrafterAdapter());
             MultiblockAdapterRegistry.register(new ExtendedCraftingCombinationAdapter());
+            MultiblockAdapterRegistry.register(new AvaritiaTableAdapter());
+            MultiblockAdapterRegistry.register(new AvaritiaExtremeSmithingAdapter());
             MultiblockAdapterRegistry.register(new ForbiddenArcanusHephaestusForgeAdapter());
             MultiblockAdapterRegistry.register(new ForbiddenArcanusClibanoAdapter());
             MultiblockAdapterRegistry.register(new OccultismRitualAdapter());
