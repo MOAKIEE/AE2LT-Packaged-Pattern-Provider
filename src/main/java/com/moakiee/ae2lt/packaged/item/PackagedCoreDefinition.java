@@ -3,6 +3,7 @@ package com.moakiee.ae2lt.packaged.item;
 import java.util.List;
 import java.util.function.Predicate;
 
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.registries.DeferredItem;
 
 import com.moakiee.ae2lt.packaged.registry.PPItems;
@@ -13,7 +14,8 @@ import com.moakiee.ae2lt.packaged.registry.PPItems;
  */
 public record PackagedCoreDefinition(
         String itemId,
-        String targetModId) {
+        String targetModId,
+        ResourceLocation targetItemId) {
 
     private static final String ACTUALLY_ADDITIONS = "actuallyadditions";
     private static final String ARS_NOUVEAU = "ars_nouveau";
@@ -27,32 +29,32 @@ public record PackagedCoreDefinition(
     private static final String BOTANIA = "botania";
 
     private static final List<PackagedCoreDefinition> ALL = List.of(
-            core("aa_reconstructor_packaged_core", ACTUALLY_ADDITIONS),
-            core("aa_empowerer_packaged_core", ACTUALLY_ADDITIONS),
-            core("ars_apparatus_packaged_core", ARS_NOUVEAU),
-            core("ars_imbuement_packaged_core", ARS_NOUVEAU),
-            core("de_fusion_packaged_core", DRACONIC_EVOLUTION),
-            core("ec_basic_table_packaged_core", EXTENDED_CRAFTING),
-            core("ec_advanced_table_packaged_core", EXTENDED_CRAFTING),
-            core("ec_elite_table_packaged_core", EXTENDED_CRAFTING),
-            core("ec_ultimate_table_packaged_core", EXTENDED_CRAFTING),
-            core("ec_ender_crafter_packaged_core", EXTENDED_CRAFTING),
-            core("ec_flux_crafter_packaged_core", EXTENDED_CRAFTING),
-            core("ec_combination_packaged_core", EXTENDED_CRAFTING),
-            core("fa_hephaestus_forge_packaged_core", FORBIDDEN_ARCANUS),
-            core("fa_clibano_packaged_core", FORBIDDEN_ARCANUS),
-            core("ma_awakening_altar_packaged_core", MYSTICAL_AGRICULTURE),
-            core("ma_infusion_altar_packaged_core", MYSTICAL_AGRICULTURE),
-            core("malum_spirit_focusing_packaged_core", MALUM),
-            core("malum_spirit_infusion_packaged_core", MALUM),
-            core("occultism_ritual_packaged_core", OCCULTISM),
-            core("occultism_spirit_fire_packaged_core", OCCULTISM),
-            core("mekmm_packaged_core", MEKANISM_MORE_MACHINE),
-            core("botania_petal_apothecary_packaged_core", BOTANIA),
-            core("botania_mana_pool_packaged_core", BOTANIA),
-            core("botania_alfheim_portal_packaged_core", BOTANIA),
-            core("botania_terra_plate_packaged_core", BOTANIA),
-            core("botania_runic_altar_packaged_core", BOTANIA));
+            core("aa_reconstructor_packaged_core", ACTUALLY_ADDITIONS, "atomic_reconstructor"),
+            core("aa_empowerer_packaged_core", ACTUALLY_ADDITIONS, "empowerer"),
+            core("ars_apparatus_packaged_core", ARS_NOUVEAU, "enchanting_apparatus"),
+            core("ars_imbuement_packaged_core", ARS_NOUVEAU, "imbuement_chamber"),
+            core("de_fusion_packaged_core", DRACONIC_EVOLUTION, "crafting_core"),
+            core("ec_basic_table_packaged_core", EXTENDED_CRAFTING, "basic_table"),
+            core("ec_advanced_table_packaged_core", EXTENDED_CRAFTING, "advanced_table"),
+            core("ec_elite_table_packaged_core", EXTENDED_CRAFTING, "elite_table"),
+            core("ec_ultimate_table_packaged_core", EXTENDED_CRAFTING, "ultimate_table"),
+            core("ec_ender_crafter_packaged_core", EXTENDED_CRAFTING, "ender_crafter"),
+            core("ec_flux_crafter_packaged_core", EXTENDED_CRAFTING, "flux_crafter"),
+            core("ec_combination_packaged_core", EXTENDED_CRAFTING, "crafting_core"),
+            core("fa_hephaestus_forge_packaged_core", FORBIDDEN_ARCANUS, "hephaestus_forge_tier_1"),
+            core("fa_clibano_packaged_core", FORBIDDEN_ARCANUS, "clibano_core"),
+            core("ma_awakening_altar_packaged_core", MYSTICAL_AGRICULTURE, "awakening_altar"),
+            core("ma_infusion_altar_packaged_core", MYSTICAL_AGRICULTURE, "infusion_altar"),
+            core("malum_spirit_focusing_packaged_core", MALUM, "spirit_crucible"),
+            core("malum_spirit_infusion_packaged_core", MALUM, "spirit_altar"),
+            core("occultism_ritual_packaged_core", OCCULTISM, "golden_sacrificial_bowl"),
+            core("occultism_spirit_fire_packaged_core", OCCULTISM, "spirit_fire"),
+            core("mekmm_packaged_core", MEKANISM_MORE_MACHINE, "large_antiprotonic_nucleosynthesizer"),
+            core("botania_petal_apothecary_packaged_core", BOTANIA, "apothecary_default"),
+            core("botania_mana_pool_packaged_core", BOTANIA, "mana_pool"),
+            core("botania_alfheim_portal_packaged_core", BOTANIA, "alfheim_portal"),
+            core("botania_terra_plate_packaged_core", BOTANIA, "terra_plate"),
+            core("botania_runic_altar_packaged_core", BOTANIA, "runic_altar"));
 
     public static List<PackagedCoreDefinition> all() {
         return ALL;
@@ -98,7 +100,11 @@ public record PackagedCoreDefinition(
 
     private static PackagedCoreDefinition core(
             String itemId,
-            String targetModId) {
-        return new PackagedCoreDefinition(itemId, targetModId);
+            String targetModId,
+            String targetItemPath) {
+        return new PackagedCoreDefinition(
+                itemId,
+                targetModId,
+                ResourceLocation.fromNamespaceAndPath(targetModId, targetItemPath));
     }
 }
