@@ -3,9 +3,7 @@ package com.moakiee.ae2lt.packaged.logic.multiblock.ec;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -169,8 +167,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             return null;
         }
 
-        var available = new LinkedHashMap<Item, Long>();
-        var keysByItem = new HashMap<Item, AEItemKey>();
+        var available = new LinkedHashMap<AEItemKey, Long>();
         for (var counter : inputs) {
             for (var entry : counter) {
                 if (!(entry.getKey() instanceof AEItemKey itemKey)) {
@@ -180,33 +177,20 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
                 if (amount <= 0) {
                     continue;
                 }
-                var item = itemKey.getItem();
-                available.merge(item, amount, Long::sum);
-                keysByItem.putIfAbsent(item, itemKey);
+                available.merge(itemKey, amount, Long::sum);
             }
         }
         if (available.isEmpty()) {
             return null;
         }
 
-        // Two-track ingredient assignment:
-        //   - Plain pattern (overload=false): bind already strictly matched
-        //     pattern.getInputs() against ingredient.test (NBT-strict), and
-        //     AE2 guarantees the KeyCounter delivers exactly those pattern
-        //     keys, so we deduct K per ingredient by item id alone and use
-        //     the KeyCounter's actual key as the grid stack — no per-push
-        //     ingredient.test required.
-        //   - Overloaded ID_ONLY pattern (overload=true): bind matched only
-        //     by item id; the runtime KeyCounter may carry a different NBT
-        //     variant, so we re-run ingredient.test(kc.toStack(1)) per
-        //     dispatch as the final anti-dup gate.
-        // Both paths feed the grid the exact KeyCounter key (with its real
-        // DataComponents/NBT) — never a default-instance fallback.
+        // Assign ingredients against exact AEItemKeys, not raw Item ids. This
+        // preserves same-item variants with different DataComponents/NBT and
+        // lets ambiguous ingredients backtrack instead of stealing the only
+        // key a later ingredient can use.
         int k = bind.craftRatio();
-        var perCraftStacks = bind.overload()
-                ? assignIngredientsStrict(ingredients, available, keysByItem, k)
-                : assignIngredientsTrusted(ingredients, available, keysByItem, k);
-        if (perCraftStacks == null || anyLeftover(available)) {
+        var perCraftStacks = assignIngredientsStrict(ingredients, available, k);
+        if (perCraftStacks == null) {
             return null;
         }
 
@@ -339,8 +323,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         }
         long patternOutAmount = patternOut.amount();
 
-        var provided = new LinkedHashMap<Item, Long>();
-        var keysByItem = new HashMap<Item, AEItemKey>();
+        var provided = new LinkedHashMap<AEItemKey, Long>();
         for (var input : pattern.getInputs()) {
             var possible = input.getPossibleInputs();
             if (possible.length == 0 || !(possible[0].what() instanceof AEItemKey itemKey)) {
@@ -354,9 +337,7 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             } catch (ArithmeticException ignored) {
                 return null;
             }
-            var item = itemKey.getItem();
-            provided.merge(item, amount, Long::sum);
-            keysByItem.putIfAbsent(item, itemKey);
+            provided.merge(itemKey, amount, Long::sum);
         }
         if (provided.isEmpty()) {
             return null;
@@ -395,11 +376,10 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
                 continue;
             }
 
-            var working = new LinkedHashMap<>(provided);
             boolean ok = overload
-                    ? consumeIngredientsByItemId(ingredients, working, k)
-                    : consumeIngredientsStrict(ingredients, working, keysByItem, k);
-            if (!ok || anyLeftover(working)) {
+                    ? canAssignIngredientsByItemId(ingredients, provided, k)
+                    : canAssignIngredientsStrict(ingredients, provided, k);
+            if (!ok) {
                 continue;
             }
 
@@ -408,178 +388,62 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
         return null;
     }
 
-    /**
-     * Bind-time consumption used in STRICT mode: each ingredient must be
-     * accepted by {@code ing.test(providedKey.toStack(1))} on the pattern's
-     * declared NBT-carrying key. Deducts K from the chosen item pool.
-     */
-    private static boolean consumeIngredientsStrict(NonNullList<Ingredient> ingredients,
-                                                    LinkedHashMap<Item, Long> working,
-                                                    Map<Item, AEItemKey> keysByItem,
-                                                    long k) {
-        for (var ing : ingredients) {
-            if (ing.isEmpty()) {
-                continue;
-            }
-            boolean found = false;
-            for (var it = working.entrySet().iterator(); it.hasNext(); ) {
-                var entry = it.next();
-                if (entry.getValue() < k) {
-                    continue;
-                }
-                var key = keysByItem.get(entry.getKey());
-                if (key == null || !ing.test(key.toStack(1))) {
-                    continue;
-                }
-                long remaining = entry.getValue() - k;
-                if (remaining == 0) {
-                    it.remove();
-                } else {
-                    entry.setValue(remaining);
-                }
-                found = true;
-                break;
-            }
-            if (!found) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Bind-time consumption used in ID_ONLY mode: each ingredient must
-     * accept some item-id-equal variant via {@link Ingredient#getItems()}.
-     * The actual NBT compatibility is rechecked at plan time against the
-     * runtime KeyCounter (see {@link #assignIngredientsStrict}).
-     */
-    private static boolean consumeIngredientsByItemId(NonNullList<Ingredient> ingredients,
-                                                      LinkedHashMap<Item, Long> working,
+    private static boolean canAssignIngredientsStrict(NonNullList<Ingredient> ingredients,
+                                                      LinkedHashMap<AEItemKey, Long> available,
                                                       long k) {
-        for (var ing : ingredients) {
-            if (ing.isEmpty()) {
-                continue;
-            }
-            boolean found = false;
-            for (var it = working.entrySet().iterator(); it.hasNext(); ) {
-                var entry = it.next();
-                if (entry.getValue() < k) {
-                    continue;
-                }
-                if (!ingredientAcceptsItemId(ing, entry.getKey())) {
-                    continue;
-                }
-                long remaining = entry.getValue() - k;
-                if (remaining == 0) {
-                    it.remove();
-                } else {
-                    entry.setValue(remaining);
-                }
-                found = true;
-                break;
-            }
-            if (!found) {
-                return false;
-            }
-        }
-        return true;
+        return assignIngredientKeys(ingredients, available, k,
+                (ingredient, key) -> ingredient.test(key.toStack(1))) != null;
     }
 
     /**
-     * Plan-time assignment for plain patterns (overload=false). Bind has
-     * already strictly validated each ingredient against
-     * pattern.getInputs() (NBT-strict), and AE2 guarantees the KeyCounter
-     * delivers exactly those pattern keys, so we deduct K per ingredient by
-     * item id alone and return the KeyCounter's exact key as the grid
-     * stack &mdash; no per-push ingredient.test required.
+     * Bind-time check for ID_ONLY output patterns: ingredient compatibility is
+     * intentionally broadened to item id, while quantities are still tracked by
+     * exact key so same-item variants do not erase each other before plan time.
      */
-    @Nullable
-    private static List<ItemStack> assignIngredientsTrusted(NonNullList<Ingredient> ingredients,
-                                                            LinkedHashMap<Item, Long> available,
-                                                            Map<Item, AEItemKey> keysByItem,
-                                                            long k) {
-        var perCraftStacks = new ArrayList<ItemStack>();
-        for (var ing : ingredients) {
-            if (ing.isEmpty()) {
-                continue;
-            }
-            Item chosen = null;
-            for (var entry : available.entrySet()) {
-                if (entry.getValue() < k) {
-                    continue;
-                }
-                if (!ingredientAcceptsItemId(ing, entry.getKey())) {
-                    continue;
-                }
-                chosen = entry.getKey();
-                break;
-            }
-            if (chosen == null) {
-                return null;
-            }
-            var key = keysByItem.get(chosen);
-            if (key == null) {
-                return null;
-            }
-            long remaining = available.get(chosen) - k;
-            if (remaining == 0) {
-                available.remove(chosen);
-            } else {
-                available.put(chosen, remaining);
-            }
-            perCraftStacks.add(key.toStack(1));
-        }
-        return perCraftStacks;
+    private static boolean canAssignIngredientsByItemId(NonNullList<Ingredient> ingredients,
+                                                        LinkedHashMap<AEItemKey, Long> available,
+                                                        long k) {
+        return assignIngredientKeys(ingredients, available, k,
+                (ingredient, key) -> ingredientAcceptsItemId(ingredient, key.getItem())) != null;
     }
 
-    /**
-     * Plan-time assignment for overloaded ID_ONLY patterns. Bind only
-     * matched by item id, so we re-run {@code ingredient.test} against the
-     * runtime KeyCounter stack (NBT-strict) per dispatch. Failure here
-     * means the player's overloaded NBT variant is not actually accepted
-     * by the recipe &mdash; refuse the dispatch instead of producing under
-     * a mismatched grid.
-     */
     @Nullable
     private static List<ItemStack> assignIngredientsStrict(NonNullList<Ingredient> ingredients,
-                                                           LinkedHashMap<Item, Long> available,
-                                                           Map<Item, AEItemKey> keysByItem,
+                                                           LinkedHashMap<AEItemKey, Long> available,
                                                            long k) {
-        var perCraftStacks = new ArrayList<ItemStack>();
-        for (var ing : ingredients) {
-            if (ing.isEmpty()) {
-                continue;
-            }
-            ItemStack picked = null;
-            Item chosenItem = null;
-            for (var entry : available.entrySet()) {
-                if (entry.getValue() < k) {
-                    continue;
-                }
-                var key = keysByItem.get(entry.getKey());
-                if (key == null) {
-                    continue;
-                }
-                var stack = key.toStack(1);
-                if (!ing.test(stack)) {
-                    continue;
-                }
-                picked = stack;
-                chosenItem = entry.getKey();
-                break;
-            }
-            if (picked == null) {
-                return null;
-            }
-            long remaining = available.get(chosenItem) - k;
-            if (remaining == 0) {
-                available.remove(chosenItem);
-            } else {
-                available.put(chosenItem, remaining);
-            }
-            perCraftStacks.add(picked);
+        var assignedKeys = assignIngredientKeys(ingredients, available, k,
+                (ingredient, key) -> ingredient.test(key.toStack(1)));
+        if (assignedKeys == null) {
+            return null;
         }
-        return perCraftStacks;
+
+        var stacks = new ArrayList<ItemStack>(assignedKeys.size());
+        for (var key : assignedKeys) {
+            stacks.add(key.toStack(1));
+        }
+        return List.copyOf(stacks);
+    }
+
+    @Nullable
+    private static List<AEItemKey> assignIngredientKeys(NonNullList<Ingredient> ingredients,
+                                                        LinkedHashMap<AEItemKey, Long> available,
+                                                        long k,
+                                                        java.util.function.BiPredicate<Ingredient, AEItemKey> matcher) {
+        var nonEmptyIngredients = new ArrayList<Ingredient>();
+        for (var ingredient : ingredients) {
+            if (!ingredient.isEmpty()) {
+                nonEmptyIngredients.add(ingredient);
+            }
+        }
+        if (nonEmptyIngredients.isEmpty()) {
+            return null;
+        }
+
+        var inputs = new ArrayList<ExtendedCraftingTableIngredientAssigner.Input<AEItemKey>>(available.size());
+        for (var entry : available.entrySet()) {
+            inputs.add(new ExtendedCraftingTableIngredientAssigner.Input<>(entry.getKey(), entry.getValue()));
+        }
+        return ExtendedCraftingTableIngredientAssigner.assign(nonEmptyIngredients, inputs, k, matcher);
     }
 
     private static boolean ingredientAcceptsItemId(Ingredient ing, Item item) {
@@ -602,15 +466,6 @@ public final class ExtendedCraftingTableAdapter implements VirtualCraftingAdapte
             }
         }
         return count;
-    }
-
-    private static boolean anyLeftover(LinkedHashMap<Item, Long> working) {
-        for (var v : working.values()) {
-            if (v > 0) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
