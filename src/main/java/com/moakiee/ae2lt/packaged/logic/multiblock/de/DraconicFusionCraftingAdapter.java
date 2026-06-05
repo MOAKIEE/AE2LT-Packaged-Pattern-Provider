@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
@@ -96,7 +97,13 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
                 return false;
             }
         }
-        return DEReflection.getInjectors(be, level) != null;
+        var injectors = DEReflection.getInjectors(be, level);
+        if (injectors == null) return false;
+
+        var fusionIngredients = DEReflection.getFusionIngredients(bind.recipe());
+        var recipeTierIndex = DEReflection.getRecipeTierIndex(bind.recipe());
+        if (fusionIngredients == null || recipeTierIndex < 0) return false;
+        return hasAvailableInjectors(injectors, recipeTierIndex, fusionIngredients.size());
     }
 
     @Override
@@ -238,22 +245,37 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
             List<AEItemKey> ingredientKeys,
             List<InjectorInfo> injectors,
             int recipeTierIndex) {
-        // Filter injectors: must be empty and meet tier requirement
-        var available = new ArrayList<InjectorInfo>();
-        for (var inj : injectors) {
-            if (inj.empty() && inj.tierIndex() >= recipeTierIndex) {
-                available.add(inj);
-            }
-        }
-        if (available.size() < ingredientKeys.size()) return null;
+        var available = selectAvailableInjectors(injectors, recipeTierIndex, ingredientKeys.size());
+        if (available.isEmpty()) return null;
 
         var assignments = new ArrayList<InjectorAssignment>(ingredientKeys.size());
+        var selected = available.orElseThrow();
         for (int i = 0; i < ingredientKeys.size(); i++) {
             assignments.add(new InjectorAssignment(
-                    available.get(i).pos(),
+                    selected.get(i).pos(),
                     new PlannedUnit(ingredientKeys.get(i), 1)));
         }
         return assignments;
+    }
+
+    private static boolean hasAvailableInjectors(
+            List<InjectorInfo> injectors,
+            int recipeTierIndex,
+            int requiredCount) {
+        return selectAvailableInjectors(injectors, recipeTierIndex, requiredCount).isPresent();
+    }
+
+    private static Optional<List<InjectorInfo>> selectAvailableInjectors(
+            List<InjectorInfo> injectors,
+            int recipeTierIndex,
+            int requiredCount) {
+        var candidates = new ArrayList<DraconicFusionInjectorMatcher.Candidate<InjectorInfo>>();
+        for (var inj : injectors) {
+            candidates.add(new DraconicFusionInjectorMatcher.Candidate<>(
+                    inj, inj.tierIndex(), inj.empty()));
+        }
+        return DraconicFusionInjectorMatcher.selectAvailableTargets(
+                candidates, recipeTierIndex, requiredCount);
     }
 
     // ===== Inserters =====
