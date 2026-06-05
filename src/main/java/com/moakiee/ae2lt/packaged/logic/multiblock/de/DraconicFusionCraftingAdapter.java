@@ -129,10 +129,10 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
                     level, assignment.injectorPos(), null,
                     List.of(assignment.unit().toGenericStack()),
                     InsertionStrategy.CUSTOM,
-                    injectorInserter(level, assignment.injectorPos(), assignment.unit())));
+                    injectorInserter(level, mainPos, assignment.injectorPos(), assignment.unit())));
         }
 
-        return new DispatchPlan(List.copyOf(targets), () -> DEReflection.startCraft(be));
+        return new DispatchPlan(List.copyOf(targets), () -> DEReflection.startCraftIfIdle(be));
     }
 
     @Override
@@ -275,9 +275,14 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
     }
 
     private static BiFunction<GenericStack, Actionable, Long> injectorInserter(
-            ServerLevel level, BlockPos pos, PlannedUnit unit) {
+            ServerLevel level, BlockPos corePos, BlockPos pos, PlannedUnit unit) {
         return (stack, mode) -> {
             if (stack.amount() != 1 || !unit.key().equals(stack.what())) return 0L;
+            var core = level.getBlockEntity(corePos);
+            if (core == null || !blockId(core.getBlockState()).equals(CRAFTING_CORE_BLOCK)
+                    || DEReflection.isCrafting(core)) {
+                return 0L;
+            }
             var be = level.getBlockEntity(pos);
             if (be == null) return 0L;
             var injStack = DEReflection.getInjectorStack(be);
@@ -433,6 +438,12 @@ public final class DraconicFusionCraftingAdapter implements MultiblockAdapter {
             try {
                 startCraftMethod.invoke(be);
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+        }
+
+        static void startCraftIfIdle(BlockEntity be) {
+            if (!isCrafting(be)) {
+                startCraft(be);
+            }
         }
 
         @Nullable

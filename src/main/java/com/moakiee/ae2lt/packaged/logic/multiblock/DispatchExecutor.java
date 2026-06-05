@@ -38,14 +38,28 @@ public final class DispatchExecutor {
             }
         }
 
+        boolean acceptedAny = false;
         for (var target : targets) {
             for (var stack : target.stacks()) {
                 long accepted = insertOne(target, stack, Actionable.MODULATE, source);
+                if (accepted > 0) {
+                    acceptedAny = true;
+                }
                 if (accepted < stack.amount()) {
                     long residual = stack.amount() - accepted;
-                    returnInv.insert(0, stack.what(), residual, Actionable.MODULATE);
-                    LOG.warn("Dispatch race: {} x{} undelivered at {}; residual moved to return inventory",
-                            stack.what(), residual, target.pos());
+                    if (acceptedAny) {
+                        returnInv.insert(0, stack.what(), residual, Actionable.MODULATE);
+                        LOG.warn("Dispatch race: {} x{} undelivered at {}; residual moved to return inventory",
+                                stack.what(), residual, target.pos());
+                    } else {
+                        LOG.warn("Dispatch race: {} x{} rejected at {}; no inputs were committed",
+                                stack.what(), residual, target.pos());
+                    }
+                    return acceptedAny
+                            ? DispatchResult.success(null)
+                            : DispatchResult.failure(
+                                    "Target at " + target.pos() + " rejected "
+                                            + stack.what() + " x" + stack.amount() + " during modulation.");
                 }
             }
         }
