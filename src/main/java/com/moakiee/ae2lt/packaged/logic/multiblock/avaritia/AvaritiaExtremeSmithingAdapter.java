@@ -325,9 +325,10 @@ public final class AvaritiaExtremeSmithingAdapter implements VirtualCraftingAdap
             return false;
         }
         var actual = AEItemKey.of(result);
-        return outputMode(pattern, 0) == MatchMode.ID_ONLY
-                ? expectedKey.dropSecondary().equals(actual.dropSecondary())
-                : expectedKey.equals(actual);
+        return AvaritiaExtremeSmithingOutputMatcher.matches(
+                expected.amount(), expectedKey,
+                expectedTotalCount, actual,
+                AEItemKey::dropSecondary);
     }
 
     private static MatchMode outputMode(IPatternDetails pattern, int outputIndex) {
