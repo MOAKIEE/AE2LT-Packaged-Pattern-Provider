@@ -1,8 +1,11 @@
 package com.moakiee.ae2lt.packaged.blockentity;
 
+import java.util.EnumSet;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
@@ -150,6 +153,14 @@ public class PackagedPatternProviderBlockEntity extends OverloadedPatternProvide
     @Override
     public boolean isAutoReturn() {
         return getReturnMode() == ReturnMode.AUTO;
+    }
+
+    @Override
+    public EnumSet<Direction> getTargets() {
+        if (fixedProviderMode() == ProviderMode.WIRELESS) {
+            return EnumSet.noneOf(Direction.class);
+        }
+        return EnumSet.allOf(Direction.class);
     }
 
     @Override
