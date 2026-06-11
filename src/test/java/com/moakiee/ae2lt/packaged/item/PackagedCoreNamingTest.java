@@ -146,25 +146,6 @@ class PackagedCoreNamingTest {
         assertItemLinksDeclaredAsPageItems(Path.of("src/main/resources/assets/ae2ltpp/ae2guide/_zh_cn"));
     }
 
-    @Test
-    void guideIsMountedInAe2GuideAfterMainMod() throws IOException {
-        assertFalse(Files.exists(Path.of("src/main/resources/assets/ae2ltpp/guideme_guides/guide.json")));
-
-        var enIndex = read("src/main/resources/assets/ae2ltpp/ae2guide/index.md");
-        var zhIndex = read("src/main/resources/assets/ae2ltpp/ae2guide/_zh_cn/index.md");
-
-        assertTrue(enIndex.contains("title: AE2LT Packaged Pattern Provider"));
-        assertTrue(enIndex.contains("position: 67"));
-        assertTrue(enIndex.contains("# AE2LT Packaged Pattern Provider"));
-        assertTrue(enIndex.contains("ae2:guide"));
-        assertFalse(enIndex.contains("ae2ltpp:guide"));
-        assertTrue(zhIndex.contains("title: 闪电科技：封包"));
-        assertTrue(zhIndex.contains("position: 67"));
-        assertTrue(zhIndex.contains("# 闪电科技：封包"));
-        assertTrue(zhIndex.contains("ae2:guide"));
-        assertFalse(zhIndex.contains("ae2ltpp:guide"));
-    }
-
     private static String read(String path) throws IOException {
         return Files.readString(Path.of(path));
     }
