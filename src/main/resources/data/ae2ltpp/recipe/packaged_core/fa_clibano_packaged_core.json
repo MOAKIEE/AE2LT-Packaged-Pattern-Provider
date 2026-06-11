@@ -1,0 +1,20 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "forbidden_arcanus"
+    }
+  ],
+  "type": "forbidden_arcanus:clibano_combustion",
+  "category": "misc",
+  "cooking_time": 200,
+  "experience": 0.0,
+  "fire_type": "fire",
+  "ingredients": {
+    "item": "ae2ltpp:basic_packaged_core"
+  },
+  "result": {
+    "count": 1,
+    "id": "ae2ltpp:fa_clibano_packaged_core"
+  }
+}

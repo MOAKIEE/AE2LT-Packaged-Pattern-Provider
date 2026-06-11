@@ -180,6 +180,12 @@ public final class PPItems {
                     AdapterIds.AVARITIA_EXTREME_SMITHING,
                     Set.of(AdapterIds.AVARITIA_EXTREME_SMITHING));
 
+    // ===== Crafting intermediates =====
+
+    /** Generic crafting base for the per-machine packaged cores. */
+    public static final DeferredItem<Item> BASIC_PACKAGED_CORE =
+            ITEMS.registerSimpleItem("basic_packaged_core", new Item.Properties());
+
     private PPItems() {
     }
 

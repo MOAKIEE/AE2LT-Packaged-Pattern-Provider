@@ -1,0 +1,67 @@
+{
+  "type": "ae2lt:lightning_assembly",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "ae2lt:ultimate_overload_core"
+      },
+      "count": 6
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:wireless_receiver"
+      },
+      "count": 16
+    },
+    {
+      "ingredient": {
+        "item": "ae2:storage_bus"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:formation_plane"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:annihilation_plane"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:level_emitter"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:import_bus"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:export_bus"
+      },
+      "count": 64
+    },
+    {
+      "ingredient": {
+        "item": "ae2:toggle_bus"
+      },
+      "count": 64
+    }
+  ],
+  "result": {
+    "id": "ae2ltpp:basic_packaged_core",
+    "count": 1
+  },
+  "totalEnergy": 16000000,
+  "lightningCost": 64,
+  "lightningTier": "extreme_high_voltage"
+}

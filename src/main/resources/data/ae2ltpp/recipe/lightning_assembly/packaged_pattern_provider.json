@@ -1,0 +1,31 @@
+{
+  "type": "ae2lt:lightning_assembly",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "ae2lt:overloaded_pattern_provider"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:overloaded_interface"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:wireless_overloaded_controller"
+      },
+      "count": 1
+    }
+  ],
+  "result": {
+    "id": "ae2ltpp:packaged_pattern_provider",
+    "count": 1
+  },
+  "totalEnergy": 16000000,
+  "lightningCost": 64,
+  "lightningTier": "extreme_high_voltage"
+}

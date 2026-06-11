@@ -1,0 +1,34 @@
+{
+  "essences": {
+    "aureal": 500,
+    "blood": 250,
+    "experience": 300,
+    "souls": 5
+  },
+  "forge_tier": 1,
+  "inputs": [
+    {
+      "amount": 4,
+      "ingredient": {
+        "item": "forbidden_arcanus:arcane_crystal"
+      }
+    },
+    {
+      "amount": 2,
+      "ingredient": {
+        "item": "forbidden_arcanus:deorum_ingot"
+      }
+    }
+  ],
+  "magic_circle": "forbidden_arcanus:create_item",
+  "main_ingredient": {
+    "item": "ae2ltpp:basic_packaged_core"
+  },
+  "result": {
+    "type": "forbidden_arcanus:create_item",
+    "result_item": {
+      "count": 1,
+      "id": "ae2ltpp:fa_hephaestus_forge_packaged_core"
+    }
+  }
+}
