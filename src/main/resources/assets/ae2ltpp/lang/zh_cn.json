@@ -7,6 +7,7 @@
   "ae2ltpp.gui.title.packaged_pattern_provider": "封包样板供应器",
   "ae2ltpp.gui.title.wireless_packaged_pattern_provider": "无线封包样板供应器",
   "ae2ltpp.gui.adapter_slot": "封包核心",
+  "item.ae2ltpp.blank_packaged_core": "空白封包核心",
   "item.ae2ltpp.aa_reconstructor_packaged_core": "原子再构机封包核心",
   "item.ae2ltpp.aa_empowerer_packaged_core": "充能台封包核心",
   "item.ae2ltpp.ars_apparatus_packaged_core": "附魔装置封包核心",
@@ -36,6 +37,5 @@
   "item.ae2ltpp.avaritia_end_table_packaged_core": "终末工作台封包核心",
   "item.ae2ltpp.avaritia_extreme_table_packaged_core": "终焉工作台封包核心",
   "item.ae2ltpp.avaritia_extreme_smithing_packaged_core": "终焉锻造台封包核心",
-  "tooltip.ae2ltpp.packaged_core.primary": "解锁: %s",
   "tooltip.ae2ltpp.packaged_core.covers": "向下兼容 %s 种封包核心"
 }

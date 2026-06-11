@@ -6,6 +6,7 @@
   "ae2ltpp.gui.title.packaged_pattern_provider": "Packaged Provider",
   "ae2ltpp.gui.title.wireless_packaged_pattern_provider": "W. Packaged Provider",
   "ae2ltpp.gui.adapter_slot": "Packaged Core",
+  "item.ae2ltpp.blank_packaged_core": "Blank Packaged Core",
   "item.ae2ltpp.aa_reconstructor_packaged_core": "Atomic Reconstructor Packaged Core",
   "item.ae2ltpp.aa_empowerer_packaged_core": "Empowerer Packaged Core",
   "item.ae2ltpp.ars_apparatus_packaged_core": "Enchanting Apparatus Packaged Core",
@@ -35,6 +36,5 @@
   "item.ae2ltpp.avaritia_end_table_packaged_core": "End Crafting Table Packaged Core",
   "item.ae2ltpp.avaritia_extreme_table_packaged_core": "Extreme Crafting Table Packaged Core",
   "item.ae2ltpp.avaritia_extreme_smithing_packaged_core": "Extreme Smithing Table Packaged Core",
-  "tooltip.ae2ltpp.packaged_core.primary": "Unlocks: %s",
   "tooltip.ae2ltpp.packaged_core.covers": "Covers %s packaged cores"
 }

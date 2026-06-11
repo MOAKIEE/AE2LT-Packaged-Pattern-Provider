@@ -11,13 +11,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 
 import net.minecraft.resources.ResourceLocation;
 
 class PackagedCoreNamingTest {
-    private static final List<String> EXPECTED_ITEM_IDS = List.of(
+    private static final List<String> MACHINE_CORE_ITEM_IDS = List.of(
             "aa_reconstructor_packaged_core",
             "aa_empowerer_packaged_core",
             "ars_apparatus_packaged_core",
@@ -47,6 +48,13 @@ class PackagedCoreNamingTest {
             "avaritia_end_table_packaged_core",
             "avaritia_extreme_table_packaged_core",
             "avaritia_extreme_smithing_packaged_core");
+
+    private static final List<String> MATERIAL_CORE_ITEM_IDS = List.of(
+            "blank_packaged_core");
+
+    private static final List<String> EXPECTED_ITEM_IDS = Stream.concat(
+            MATERIAL_CORE_ITEM_IDS.stream(),
+            MACHINE_CORE_ITEM_IDS.stream()).toList();
 
     @Test
     void itemRegistryNamesUsePackagedCoreSuffix() throws IOException {
@@ -94,9 +102,30 @@ class PackagedCoreNamingTest {
     }
 
     @Test
+    void packagedCoreTooltipDoesNotShowPrimaryUnlockLine() throws IOException {
+        var itemSource = read("src/main/java/com/moakiee/ae2lt/packaged/item/MultiblockAdapterItem.java");
+        var en = read("src/main/resources/assets/ae2ltpp/lang/en_us.json");
+        var zh = read("src/main/resources/assets/ae2ltpp/lang/zh_cn.json");
+
+        assertFalse(itemSource.contains("tooltip.ae2ltpp.packaged_core.primary"));
+        assertFalse(en.contains("tooltip.ae2ltpp.packaged_core.primary"));
+        assertFalse(zh.contains("tooltip.ae2ltpp.packaged_core.primary"));
+        assertFalse(en.contains("Unlocks:"));
+        assertFalse(zh.contains("解锁:"));
+    }
+
+    @Test
+    void itemModelsExistForAllPackagedCoreItems() {
+        for (var id : EXPECTED_ITEM_IDS) {
+            assertTrue(Files.exists(Path.of(
+                    "src/main/resources/assets/ae2ltpp/models/item/" + id + ".json")), id);
+        }
+    }
+
+    @Test
     void guideItemLinksUsePackagedCoreIds() throws IOException {
         var guide = readTree("src/main/resources/assets/ae2ltpp/ae2guide");
-        for (var id : EXPECTED_ITEM_IDS) {
+        for (var id : MACHINE_CORE_ITEM_IDS) {
             assertTrue(guide.contains("ae2ltpp:" + id), id);
         }
 

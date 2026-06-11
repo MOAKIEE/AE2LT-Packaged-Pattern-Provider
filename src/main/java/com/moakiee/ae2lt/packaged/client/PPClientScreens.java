@@ -1,5 +1,7 @@
 package com.moakiee.ae2lt.packaged.client;
 
+import java.util.stream.Stream;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
@@ -15,6 +17,7 @@ import appeng.client.gui.style.StyleManager;
 import com.moakiee.ae2lt.packaged.AE2LTPackagedProvider;
 import com.moakiee.ae2lt.packaged.item.PackagedCoreDefinition;
 import com.moakiee.ae2lt.packaged.menu.PackagedPatternProviderMenu;
+import com.moakiee.ae2lt.packaged.registry.PPItems;
 
 @EventBusSubscriber(modid = AE2LTPackagedProvider.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class PPClientScreens {
@@ -34,9 +37,11 @@ public final class PPClientScreens {
             public PackagedCoreItemRenderer getCustomRenderer() {
                 return renderer;
             }
-        }, PackagedCoreDefinition.all().stream()
+        }, Stream.concat(
+                Stream.of((Item) PPItems.BLANK_PACKAGED_CORE.get()),
+                PackagedCoreDefinition.all().stream()
                 .map(definition -> (Item) definition.runtimeItem().get())
-                .toArray(Item[]::new));
+        ).toArray(Item[]::new));
     }
 
     private static PackagedPatternProviderScreen createPackagedPatternProviderScreen(

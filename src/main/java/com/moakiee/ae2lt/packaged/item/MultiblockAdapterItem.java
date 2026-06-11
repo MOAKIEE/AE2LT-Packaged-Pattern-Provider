@@ -76,9 +76,6 @@ public class MultiblockAdapterItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.ae2ltpp.packaged_core.primary",
-                Component.literal(primaryId.toString()).withStyle(ChatFormatting.AQUA))
-                .withStyle(ChatFormatting.GRAY));
         if (coveredIds.size() > 1) {
             tooltip.add(Component.translatable("tooltip.ae2ltpp.packaged_core.covers",
                     Component.literal(String.valueOf(coveredIds.size())).withStyle(ChatFormatting.GOLD))
