@@ -2,12 +2,15 @@ package com.moakiee.ae2lt.packaged.client;
 
 import java.util.stream.Stream;
 
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
@@ -42,6 +45,20 @@ public final class PPClientScreens {
                 PackagedCoreDefinition.all().stream()
                 .map(definition -> (Item) definition.runtimeItem().get())
         ).toArray(Item[]::new));
+    }
+
+    @SubscribeEvent
+    public static void wrapPackagedCoreItemModels(ModelEvent.ModifyBakingResult event) {
+        var models = event.getModels();
+        for (var definition : PackagedCoreDefinition.all()) {
+            var key = ModelResourceLocation.inventory(ResourceLocation.fromNamespaceAndPath(
+                    AE2LTPackagedProvider.MODID,
+                    definition.itemId()));
+            var model = models.get(key);
+            if (model != null) {
+                models.put(key, new PackagedCoreBakedModel(model));
+            }
+        }
     }
 
     private static PackagedPatternProviderScreen createPackagedPatternProviderScreen(
