@@ -83,16 +83,6 @@ public final class PPItems {
                     AdapterIds.EC_COMBINATION,
                     Set.of(AdapterIds.EC_COMBINATION));
 
-    public static final DeferredItem<MultiblockAdapterItem> FA_HEPHAESTUS_FORGE_ADAPTER =
-            registerPackagedCore("fa_hephaestus_forge_packaged_core",
-                    AdapterIds.FA_HEPHAESTUS_FORGE,
-                    Set.of(AdapterIds.FA_HEPHAESTUS_FORGE));
-
-    public static final DeferredItem<MultiblockAdapterItem> FA_CLIBANO_ADAPTER =
-            registerPackagedCore("fa_clibano_packaged_core",
-                    AdapterIds.FA_CLIBANO,
-                    Set.of(AdapterIds.FA_CLIBANO));
-
     public static final DeferredItem<MultiblockAdapterItem> MA_AWAKENING_ADAPTER =
             registerPackagedCore("ma_awakening_altar_packaged_core",
                     AdapterIds.MA_AWAKENING,

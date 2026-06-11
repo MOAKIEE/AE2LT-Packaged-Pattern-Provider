@@ -198,8 +198,6 @@ dependencies {
     runtimeOnly "maven.modrinth:re-avaritia:VXmzsQD6"                  // 1.3.9.9           (avaritia/)
     runtimeOnly "maven.modrinth:occultism:8YVnfDm6"                    // 1.215.0           (occultism/)
     runtimeOnly "maven.modrinth:draconic-evolution:lBMsiWyw"           // 3.1.4.632         (de/)
-    runtimeOnly "maven.modrinth:valhelsia-core:cttRekq9"               // 1.1.4             (FA dep)
-    runtimeOnly "maven.modrinth:forbidden-arcanus:fNjxgZPH"            // 2.6.1             (fa/)
     runtimeOnly "curse.maven:malum-484064:7307339"                     // 1.8.2             (malum/)
 
     // Botania 1.21.1 has no official release yet; we use the maintainer's

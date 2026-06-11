@@ -30,8 +30,6 @@ class PackagedCoreNamingTest {
             "ec_ender_crafter_packaged_core",
             "ec_flux_crafter_packaged_core",
             "ec_combination_packaged_core",
-            "fa_hephaestus_forge_packaged_core",
-            "fa_clibano_packaged_core",
             "ma_awakening_altar_packaged_core",
             "ma_infusion_altar_packaged_core",
             "malum_spirit_focusing_packaged_core",

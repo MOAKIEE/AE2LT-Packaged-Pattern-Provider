@@ -48,10 +48,6 @@ item_ids:
 * [通量合成器](flux-crafter.md)
 * [组合合成](combination-crafter.md)
 
-### Forbidden Arcanus（禁忌与奥秘）
-* [赫菲斯托斯锻炉](hephaestus-forge.md) ⚠
-* [克利巴诺熔炉](clibano.md) ⚠
-
 ### Mystical Agriculture（神秘农业）
 * [注魔祭坛](infusion-altar.md)
 * [觉醒祭坛](awakening-altar.md) ⚠

@@ -56,10 +56,6 @@ public final class AdapterIds {
             id("extendedcrafting/flux_crafter_packaged_core");
     public static final ResourceLocation EC_COMBINATION =
             id("extendedcrafting/combination_packaged_core");
-    public static final ResourceLocation FA_HEPHAESTUS_FORGE =
-            id("forbidden_arcanus/hephaestus_forge_packaged_core");
-    public static final ResourceLocation FA_CLIBANO =
-            id("forbidden_arcanus/clibano_packaged_core");
     public static final ResourceLocation MA_AWAKENING =
             id("mysticalagriculture/awakening_packaged_core");
     public static final ResourceLocation MA_INFUSION =

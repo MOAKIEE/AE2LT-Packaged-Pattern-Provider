@@ -21,7 +21,6 @@ public record PackagedCoreDefinition(
     private static final String ARS_NOUVEAU = "ars_nouveau";
     private static final String DRACONIC_EVOLUTION = "draconicevolution";
     private static final String EXTENDED_CRAFTING = "extendedcrafting";
-    private static final String FORBIDDEN_ARCANUS = "forbidden_arcanus";
     private static final String MYSTICAL_AGRICULTURE = "mysticalagriculture";
     private static final String MALUM = "malum";
     private static final String OCCULTISM = "occultism";
@@ -42,8 +41,6 @@ public record PackagedCoreDefinition(
             core("ec_ender_crafter_packaged_core", EXTENDED_CRAFTING, "ender_crafter"),
             core("ec_flux_crafter_packaged_core", EXTENDED_CRAFTING, "flux_crafter"),
             core("ec_combination_packaged_core", EXTENDED_CRAFTING, "crafting_core"),
-            core("fa_hephaestus_forge_packaged_core", FORBIDDEN_ARCANUS, "hephaestus_forge_tier_1"),
-            core("fa_clibano_packaged_core", FORBIDDEN_ARCANUS, "clibano_core"),
             core("ma_awakening_altar_packaged_core", MYSTICAL_AGRICULTURE, "awakening_altar"),
             core("ma_infusion_altar_packaged_core", MYSTICAL_AGRICULTURE, "infusion_altar"),
             core("malum_spirit_focusing_packaged_core", MALUM, "spirit_crucible"),
@@ -86,8 +83,6 @@ public record PackagedCoreDefinition(
             case "ec_ender_crafter_packaged_core" -> PPItems.EC_ENDER_CRAFTER_ADAPTER;
             case "ec_flux_crafter_packaged_core" -> PPItems.EC_FLUX_CRAFTER_ADAPTER;
             case "ec_combination_packaged_core" -> PPItems.EC_COMBINATION_ADAPTER;
-            case "fa_hephaestus_forge_packaged_core" -> PPItems.FA_HEPHAESTUS_FORGE_ADAPTER;
-            case "fa_clibano_packaged_core" -> PPItems.FA_CLIBANO_ADAPTER;
             case "ma_awakening_altar_packaged_core" -> PPItems.MA_AWAKENING_ADAPTER;
             case "ma_infusion_altar_packaged_core" -> PPItems.MA_INFUSION_ADAPTER;
             case "malum_spirit_focusing_packaged_core" -> PPItems.MALUM_SPIRIT_FOCUSING_ADAPTER;

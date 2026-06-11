@@ -50,10 +50,6 @@ crafting machines from **other mods**. You choose which machine by inserting a s
 * [Flux Crafter](flux-crafter.md)
 * [Combination Crafter](combination-crafter.md)
 
-### Forbidden Arcanus
-* [Hephaestus Forge](hephaestus-forge.md) ⚠
-* [Clibano](clibano.md) ⚠
-
 ### Mystical Agriculture
 * [Infusion Altar](infusion-altar.md)
 * [Awakening Altar](awakening-altar.md) ⚠
