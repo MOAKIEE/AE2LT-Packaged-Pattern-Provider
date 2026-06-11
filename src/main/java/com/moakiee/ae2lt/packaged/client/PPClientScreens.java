@@ -38,7 +38,7 @@ public final class PPClientScreens {
                 return renderer;
             }
         }, Stream.concat(
-                Stream.of((Item) PPItems.BLANK_PACKAGED_CORE.get()),
+                Stream.of((Item) PPItems.BASIC_PACKAGED_CORE.get()),
                 PackagedCoreDefinition.all().stream()
                 .map(definition -> (Item) definition.runtimeItem().get())
         ).toArray(Item[]::new));

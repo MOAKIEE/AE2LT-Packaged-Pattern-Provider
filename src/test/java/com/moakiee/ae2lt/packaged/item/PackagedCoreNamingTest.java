@@ -50,16 +50,17 @@ class PackagedCoreNamingTest {
             "avaritia_extreme_smithing_packaged_core");
 
     private static final List<String> MATERIAL_CORE_ITEM_IDS = List.of(
-            "blank_packaged_core");
+            "basic_packaged_core");
 
     private static final List<String> EXPECTED_ITEM_IDS = Stream.concat(
-            MATERIAL_CORE_ITEM_IDS.stream(),
-            MACHINE_CORE_ITEM_IDS.stream()).toList();
+            MACHINE_CORE_ITEM_IDS.stream(),
+            MATERIAL_CORE_ITEM_IDS.stream()).toList();
 
     @Test
     void itemRegistryNamesUsePackagedCoreSuffix() throws IOException {
         var source = read("src/main/java/com/moakiee/ae2lt/packaged/registry/PPItems.java");
-        var matcher = Pattern.compile("register(?:Adapter|PackagedCore)\\(\"([^\"]+)\"").matcher(source);
+        var matcher = Pattern.compile("(?:register(?:Adapter|PackagedCore)|registerSimpleItem)\\(\"([^\"]+)\"")
+                .matcher(source);
         var actual = new ArrayList<String>();
         while (matcher.find()) {
             actual.add(matcher.group(1));
@@ -115,6 +116,25 @@ class PackagedCoreNamingTest {
     }
 
     @Test
+    void blankPackagedCoreWasReplacedByBasicPackagedCore() throws IOException {
+        var mainSources = readTextTree("src/main");
+
+        assertTrue(mainSources.contains("basic_packaged_core"));
+        assertFalse(mainSources.contains("blank_packaged_core"));
+        assertFalse(mainSources.contains("BLANK_PACKAGED_CORE"));
+    }
+
+    @Test
+    void forbiddenArcanusIntegrationStaysRemoved() throws IOException {
+        var mainSources = readTextTree("src/main");
+
+        assertFalse(mainSources.contains("forbidden_arcanus"));
+        assertFalse(mainSources.contains("ForbiddenArcanus"));
+        assertFalse(mainSources.contains("fa_clibano_packaged_core"));
+        assertFalse(mainSources.contains("fa_hephaestus_forge_packaged_core"));
+    }
+
+    @Test
     void itemModelsExistForAllPackagedCoreItems() {
         for (var id : EXPECTED_ITEM_IDS) {
             assertTrue(Files.exists(Path.of(
@@ -159,6 +179,30 @@ class PackagedCoreNamingTest {
             }
         }
         return builder.toString();
+    }
+
+    private static String readTextTree(String path) throws IOException {
+        var root = Path.of(path);
+        var builder = new StringBuilder();
+        try (var files = Files.walk(root)) {
+            for (var file : files.filter(Files::isRegularFile)
+                    .filter(PackagedCoreNamingTest::isTextFile)
+                    .sorted()
+                    .toList()) {
+                builder.append(Files.readString(file)).append('\n');
+            }
+        }
+        return builder.toString();
+    }
+
+    private static boolean isTextFile(Path path) {
+        var name = path.getFileName().toString();
+        return name.endsWith(".java")
+                || name.endsWith(".json")
+                || name.endsWith(".md")
+                || name.endsWith(".toml")
+                || name.endsWith(".properties")
+                || name.endsWith(".cfg");
     }
 
     private static void assertItemLinksDeclaredAsPageItems(Path root) throws IOException {

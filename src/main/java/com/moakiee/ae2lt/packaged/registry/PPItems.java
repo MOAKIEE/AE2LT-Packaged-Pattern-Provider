@@ -2,7 +2,6 @@ package com.moakiee.ae2lt.packaged.registry;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -22,10 +21,6 @@ public final class PPItems {
     // Each provider holds exactly one core and is locked to that machine family.
     // EC tiers form a covers-down chain (ultimate ⊇ elite ⊇ advanced ⊇ basic) so
     // higher cores work on lower tables, matching the user's "向下兼容" requirement.
-
-    public static final DeferredItem<Item> BLANK_PACKAGED_CORE =
-            registerPackagedCore("blank_packaged_core",
-                    () -> new Item(new Item.Properties()));
 
     public static final DeferredItem<MultiblockAdapterItem> AA_RECONSTRUCTOR_ADAPTER =
             registerPackagedCore("aa_reconstructor_packaged_core",
@@ -175,13 +170,13 @@ public final class PPItems {
                     AdapterIds.AVARITIA_EXTREME_SMITHING,
                     Set.of(AdapterIds.AVARITIA_EXTREME_SMITHING));
 
-    private PPItems() {
-    }
+    // ===== Crafting intermediates =====
 
-    private static <T extends Item> DeferredItem<T> registerPackagedCore(
-            String name,
-            Supplier<T> factory) {
-        return ITEMS.register(name, factory);
+    /** Generic crafting base for the per-machine packaged cores. */
+    public static final DeferredItem<Item> BASIC_PACKAGED_CORE =
+            ITEMS.registerSimpleItem("basic_packaged_core", new Item.Properties());
+
+    private PPItems() {
     }
 
     private static DeferredItem<MultiblockAdapterItem> registerPackagedCore(

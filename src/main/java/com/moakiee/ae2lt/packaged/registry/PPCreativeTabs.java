@@ -23,7 +23,7 @@ public final class PPCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(PPBlocks.PACKAGED_PATTERN_PROVIDER);
                         output.accept(PPBlocks.WIRELESS_PACKAGED_PATTERN_PROVIDER);
-                        output.accept(PPItems.BLANK_PACKAGED_CORE);
+                        output.accept(PPItems.BASIC_PACKAGED_CORE);
                         for (var core : PackagedCoreDefinition.visibleWhen(PPCreativeTabs::isLoaded)) {
                             output.accept(core.runtimeItem());
                         }
