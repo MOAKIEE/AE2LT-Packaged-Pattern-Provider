@@ -18,6 +18,7 @@ instead of time. Place the provider against the Flux Crafter and encode the reci
 
 ## Requirements
 
-* Needs nearby **Flux Alternator** blocks supplying FE (standard layout).
+* Place **Flux Alternator** blocks and supply FE according to the Flux Crafter's normal rules.
 * The craft advances as power is drawn from the alternators; if power is low it simply takes longer —
   items won't be lost while it waits.
+* Before starting, the 3×3 grid and output slot must be empty.

@@ -26,3 +26,6 @@ the craft, then **pulls them back into your ME network together with the finishe
 You still need the catalyst items in stock (so they can be placed), but you don't lose them — encode
 the pattern's inputs to include both the consumed reagent and the catalyst items, and the catalysts
 come straight back.
+
+Before starting, the Chamber and every Arcane Pedestal within 1 block must be empty; any occupied
+pedestal in that range blocks the craft.

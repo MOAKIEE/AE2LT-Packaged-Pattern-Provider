@@ -13,12 +13,6 @@ The **Packaged Pattern Provider** (and its wireless version) lets AE2 autocrafti
 crafting machines from **other mods**. You choose which machine by inserting a single
 **Packaged Core** into the provider.
 
-## Opening this guide
-
-* Run `/guideme open @s ae2:guide`, or `/guideme give @s ae2:guide` for a book you can right-click.
-* In the sidebar, open **AE2LT Packaged Pattern Provider** below **AE2 Lightning Tech**.
-* Or hold the GuideME *open guide* key while pointing at a Packaged Pattern Provider.
-
 ## How it works (the same 4 steps for every machine)
 
 1. Place a (Wireless) Packaged Pattern Provider **touching the target machine's main block / core**.

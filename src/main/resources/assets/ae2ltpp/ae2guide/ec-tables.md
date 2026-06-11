@@ -25,9 +25,9 @@ container/leftover items, e.g. empty buckets) is returned instantly.
 
 ## ⚠ One packaged core covers lower tiers
 
-The cores form a chain: a **higher-tier core also unlocks every lower tier**. So a single
-**Ultimate Table** core works on all four tables, an Elite core works on Elite / Advanced / Basic, and
-so on. You only need the core for the **highest** table you want to drive.
+The cores form a chain: a **higher-tier core also unlocks every lower tier**. An Ultimate Table core works
+on Ultimate / Elite / Advanced / Basic, an Elite Table core works on Elite / Advanced / Basic, and so on.
+You only need the core for the highest table you want to drive.
 
 ## Notes
 

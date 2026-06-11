@@ -22,5 +22,6 @@ surrounding pedestals, then returns the result.
 * An **Arcane Core** must sit directly behind the Apparatus (matching its facing axis), as usual.
 * The recipe's items go on **Arcane Pedestals / Arcane Platforms** within **3 blocks** of the Apparatus.
 * Recipes that cost **Source** draw it from nearby **Source Jars** (within 10 blocks) — keep them filled.
+* Before starting, the Apparatus and every Arcane Pedestal / Arcane Platform within 3 blocks must be empty.
 
 The pedestal items here are normal ingredients and **are consumed** by the recipe.

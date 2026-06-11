@@ -20,8 +20,6 @@ produced and returned (you don't need to right-click with a wand).
 ## ⚠ Mana & recycled rune catalysts
 
 * The altar needs **mana** from your mana spreaders — keep it supplied.
-* Runic Altar recipes have two kinds of runes:
-  * **Ingredients** (runes, petals, dusts) that are **consumed**.
-  * **Catalyst runes** that are only required to be present and are **returned after the craft**.
-* So include both in the pattern's inputs — the consumed ingredients are used up, while the catalyst
-  runes come straight back into your ME network.
+* For recipes with catalyst runes, encode consumed ingredients + catalyst runes as inputs, and encode the
+  primary result + each returned catalyst rune as outputs.
+* If the outputs only declare the primary result, AE2 will not count the returned runes for this craft.

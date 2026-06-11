@@ -14,10 +14,11 @@ item_ids:
 **Mod:** Malum
 
 Automates Spirit Altar infusion. Place the provider against the **Spirit Altar** and encode the recipe as
-a pattern. The provider puts the main item on the altar and the extra items onto the altar's surrounding
-spirit slots, then the altar consumes the recipe and the result is returned.
+a pattern. The provider puts the main item and spirits into the altar, puts extra items onto the
+surrounding access point / pedestal slots, then the altar consumes the recipe and the result is returned.
 
 ## Structure
 
-* Build the Spirit Altar with its surrounding access points as usual — the extra recipe items are shown
-  on them and pulled in by the altar while it crafts.
+* Build the Spirit Altar with its surrounding access points as usual.
+* Before starting, the altar's main, spirit, and extra inventories, plus the surrounding access point /
+  pedestal slots, must be empty.

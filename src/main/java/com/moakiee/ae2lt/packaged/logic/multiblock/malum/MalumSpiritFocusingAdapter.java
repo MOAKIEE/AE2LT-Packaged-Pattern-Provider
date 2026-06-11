@@ -38,8 +38,9 @@ import com.moakiee.ae2lt.packaged.logic.multiblock.binding.BindingResult;
 
 /**
  * Runtime adapter for Malum's Spirit Crucible focusing.
- * The crucible catalyst is reusable and must already be installed; each
- * dispatch only inserts the recipe's spirit shards.
+ * The crucible catalyst is reusable, but it is supplied as part of each
+ * pattern dispatch. The plan inserts the catalyst first, then the spirit
+ * shards, and extracts the catalyst again once the crucible is inactive.
  */
 public final class MalumSpiritFocusingAdapter implements MultiblockAdapter {
 

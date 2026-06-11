@@ -19,6 +19,6 @@ away.
 
 ## ⚠ Water per craft
 
-Each craft consumes **one charge of water** from the Apothecary, just like crafting by hand. Either keep
-the basin filled with water, or include a **water source** (e.g. a water bucket) in the pattern's inputs
-so the provider can supply it. The seed/reagent is a normal ingredient and is consumed.
+Each craft needs **one charge of water**. Water source priority is: water buckets in the pattern inputs
+(empty buckets are returned), water fluid in the pattern inputs (1000 mB per craft), then water already
+in the Apothecary. The seed/reagent is a normal ingredient and is consumed.

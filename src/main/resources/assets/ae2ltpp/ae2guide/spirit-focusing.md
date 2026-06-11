@@ -14,11 +14,12 @@ item_ids:
 **Mod:** Malum
 
 Automates Spirit Crucible focusing. Place the provider against the **Spirit Crucible** and encode the
-recipe as a pattern. Each craft, the provider only inserts the recipe's **spirit shards**, and the result
-is returned when focusing finishes.
+recipe as a pattern. Each craft, the provider inserts the recipe's **catalyst** first, then the required
+**spirit shards**, and returns both the result and the catalyst when focusing finishes.
 
-## ⚠ Install the catalyst first
+## ⚠ Encode the catalyst as an input
 
-The crucible's **catalyst is reusable and must already be installed** in the crucible by you. The provider
-does **not** put the catalyst in — it only feeds the spirit shards. Set up the crucible with its catalyst
-once, and it keeps working for every craft.
+Do not leave the catalyst pre-installed in the crucible; the provider only starts while the crucible is idle
+with empty input slots. Encode both the **catalyst** and the **spirit shards** as pattern inputs, with only
+the focusing result as the pattern output. The catalyst is not consumed by the Malum recipe and is returned
+to your ME network after the craft.

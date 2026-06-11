@@ -21,3 +21,4 @@ pedestals, then returns the result.
 
 * 1 Infusion Altar + **8 Infusion Pedestals** at the standard fixed offsets around it
   (the normal Infusion Altar layout). Build it as you would for manual use.
+* Before starting, the altar input/output slots and all 8 Infusion Pedestals must be empty.

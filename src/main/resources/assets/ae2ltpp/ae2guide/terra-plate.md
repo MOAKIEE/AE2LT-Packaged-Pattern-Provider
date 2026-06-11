@@ -21,3 +21,4 @@ items; once the plate has gathered enough mana it produces the output, which is 
 
 * The plate consumes a large amount of **mana** from surrounding mana sources, and there is an in-world
   delay while it charges. Keep mana flowing in or the craft will simply take longer.
+* Before starting, the plate must be idle and its 1-block item area must have no dropped items in it.

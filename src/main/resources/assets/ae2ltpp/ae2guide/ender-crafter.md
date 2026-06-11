@@ -19,5 +19,6 @@ and the result is pulled back when done.
 
 ## Requirements
 
-* Needs at least one **Ender Alternator** within a 7×7×7 box around the crafter (standard layout).
+* Needs at least one **Ender Alternator** within a 7×7×7 box around the crafter.
 * Crafting takes time (default ~60 s, faster with more alternators) — this is normal and can't be skipped.
+* Before starting, the 3×3 grid and output slot must be empty.

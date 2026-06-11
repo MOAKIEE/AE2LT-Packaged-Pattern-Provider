@@ -22,4 +22,5 @@ ingredient into each injector, starts the craft, and pulls the result back when 
 * Build the multiblock normally: a Crafting Core with enough **Injectors** around it, charged with energy.
 * The injectors must meet the recipe's **tier** (Wyvern / Draconic / Chaotic). Lower-tier injectors are
   skipped, so make sure you have enough injectors of the required tier.
+* Before starting, the core catalyst slot and the injectors used for this craft must be empty.
 * The catalyst is a normal ingredient and is consumed by the craft.

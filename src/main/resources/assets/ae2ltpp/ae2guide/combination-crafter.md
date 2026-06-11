@@ -22,3 +22,4 @@ pulled back.
 * Surround the core with **Pedestals** (up to 48) within a 7×7 area on the **same level** as the core.
 * The core needs **FE power**, fed from your own energy source. The provider doesn't check the energy
   balance, so just keep the core powered — it crafts once enough has accumulated.
+* Before starting, the core slot and the pedestals used for this craft must be empty.

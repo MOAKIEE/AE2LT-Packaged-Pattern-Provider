@@ -20,6 +20,6 @@ as a pattern. The provider places the items and returns the result.
 
 The recipe needs the 8 surrounding positions to be exactly **4 Awakening Pedestals + 4 Essence Vessels**.
 
-Encode the recipe with the altar item, the 4 pedestal items, and the 4 required essence stacks. The
-provider fills the empty Essence Vessels automatically, places the other items,
-then starts the craft.
+Encode the inputs with the altar item, the 4 pedestal items, and the 4 required essence stacks (with the
+recipe's counts). Before starting, the altar slots, pedestals, and Essence Vessels must all be empty.
+The provider fills the essence, places the items, then starts the craft.

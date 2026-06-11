@@ -25,8 +25,8 @@ crafting remainders are returned instantly.
 
 ## ⚠ One packaged core covers lower tiers
 
-The cores form a chain: a higher-tier core also unlocks every lower tier. An **Extreme Crafting
-Table** core works on all four tables, an End core works on End / Nether / Sculk, and so on.
+The cores form a chain: a higher-tier core also unlocks every lower tier. An Extreme Crafting Table core
+works on Extreme / End / Nether / Sculk, an End Table core works on End / Nether / Sculk, and so on.
 
 ## Notes
 

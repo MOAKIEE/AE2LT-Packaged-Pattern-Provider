@@ -21,8 +21,11 @@ sacrificial bowls, then lets the ritual run.
 
 * You must have the full ritual ready: the correct **pentacle drawn** and the **sacrificial bowls** placed
   around the Golden Ritual Bowl, exactly as the ritual requires.
-* Rituals take in-world time and have visible effects; the provider automates the item placement (and can
-  proxy the sacrifice / item-use cost), but the ritual itself still plays out normally.
+* Encode the activation item + ritual ingredients as inputs. For rituals that require a sacrifice, add a
+  spawn egg input; for rituals that require item use, add the required item input. The provider consumes
+  those proxy inputs to complete the matching step.
+* Before starting, the Golden Ritual Bowl and the Sacrificial Bowls used for ingredients must be empty.
+  The ritual still takes in-world time and shows its normal effects.
 
 ## Output extraction
 
