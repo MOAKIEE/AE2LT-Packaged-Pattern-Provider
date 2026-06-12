@@ -7,6 +7,8 @@ issueTrackerURL = "https://github.com/MOAKIEE/AE2LT-Packaged-Pattern-Provider/is
 modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "${mod_name}"
+logoFile = "icon.png"
+logoBlur = false
 authors = "${mod_authors}"
 description = '''${mod_description}'''
 
