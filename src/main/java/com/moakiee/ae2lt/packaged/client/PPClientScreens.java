@@ -22,7 +22,7 @@ import com.moakiee.ae2lt.packaged.item.PackagedCoreDefinition;
 import com.moakiee.ae2lt.packaged.menu.PackagedPatternProviderMenu;
 import com.moakiee.ae2lt.packaged.registry.PPItems;
 
-@EventBusSubscriber(modid = AE2LTPackagedProvider.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LTPackagedProvider.MODID, value = Dist.CLIENT)
 public final class PPClientScreens {
     private PPClientScreens() {
     }

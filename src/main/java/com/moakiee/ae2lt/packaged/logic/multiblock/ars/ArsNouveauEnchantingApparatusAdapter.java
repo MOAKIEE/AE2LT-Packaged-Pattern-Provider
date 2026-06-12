@@ -364,19 +364,12 @@ public final class ArsNouveauEnchantingApparatusAdapter implements MultiblockAda
         return units;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static boolean recipeMatches(Recipe<?> recipe, RecipeInput input, ServerLevel level) {
         try {
             return rawRecipe(recipe).matches(input, level);
         } catch (RuntimeException | LinkageError ignored) {
             return false;
-        }
-    }
-
-    private static ItemStack assemble(Recipe<?> recipe, RecipeInput input, ServerLevel level) {
-        try {
-            return rawRecipe(recipe).assemble(input, level.registryAccess()).copy();
-        } catch (RuntimeException | LinkageError ignored) {
-            return ItemStack.EMPTY;
         }
     }
 

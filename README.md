@@ -47,9 +47,9 @@ java -version
 javac -version
 ```
 
-## Cloning Upstream Projects
+## Optional Upstream Projects
 
-For local integration work, clone:
+For source-level debugging or cross-project integration work, clone:
 
 - [AE2 Lightning Tech](https://github.com/MOAKIEE/AE2-Lightning-Tech)
 - [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)
@@ -77,9 +77,15 @@ Local phase-1 verification observed an output jar similar to:
 
 `ae2lt-1.0.10.jar`
 
-## Configuring AE2LT Jar
+## Configuring AE2LT Dependency
 
-This project currently supports three ways to point Gradle at the AE2 Lightning Tech jar:
+This project uses the published AE2 Lightning Tech Maven coordinate by default:
+
+```properties
+ae2lt_maven_notation=curse.maven:ae2-lightning-tech-1527395:8135920
+```
+
+For local AE2LT development, clear or comment `ae2lt_maven_notation`, then point Gradle at a local jar by using one of:
 
 1. `ae2lt_jar` in `gradle.properties`
 2. `AE2LT_JAR` environment variable
@@ -88,16 +94,16 @@ This project currently supports three ways to point Gradle at the AE2 Lightning 
 Example `gradle.properties` entry:
 
 ```properties
-ae2lt_jar=../AE2-Lightning-Tech/build/libs/ae2lt-1.0.10.jar
+ae2lt_jar=../AE2-Lightning-Tech/build/libs/ae2lt-1.0.11.jar
 ```
 
 Example PowerShell override:
 
 ```powershell
-$env:AE2LT_JAR="C:\Users\Administrator\IdeaProjects\AE2-Lightning-Tech\build\libs\ae2lt-1.0.10.jar"
+$env:AE2LT_JAR="C:\Users\Administrator\IdeaProjects\AE2-Lightning-Tech\build\libs\ae2lt-1.0.11.jar"
 ```
 
-If the jar cannot be found, the build fails with a clear error message instead of a vague compile failure.
+If no Maven coordinate is configured and the local jar cannot be found, the build fails with a clear error message instead of a vague compile failure.
 
 ## Build
 
@@ -132,6 +138,9 @@ Integration code currently exists for:
 - Extended Crafting
 - Mystical Agriculture
 - Occultism
+- Mekanism More Machines
+- Malum
+- Botania
 
 These entries reflect source code present in the repository, not a blanket statement that every target has already been runtime-validated in every environment.
 
@@ -146,17 +155,17 @@ These entries reflect source code present in the repository, not a blanket state
 
 ## Known Limitations
 
-- The project still depends on a local or environment-provided AE2LT jar unless AE2 Lightning Tech publishes a stable Maven coordinate for this target.
+- The project builds against the published AE2 Lightning Tech Maven coordinate by default; local jar fallback remains available for source-level AE2LT development.
 - The AE2 official `1.21.1` branch and the addon / AE2LT projects currently observe different NeoForge patch versions.
 - `PackagedPatternProviderLogic` dispatch fallback and registry hardening are in place, but test coverage is still focused on targeted regression paths rather than broad integration scenarios.
 - Optional-mod reflection handling is still mixed, but the cached lookup helper now covers several hot-path adapters. New optional-mod hot paths should prefer cached lookup helpers first, and only move to `MethodHandle` / `VarHandle` when profiling shows a real win.
-- Full CI success depends on being able to build or otherwise provide the AE2LT jar first.
+- Full CI success depends on the published AE2 Lightning Tech Maven artifact remaining available from the configured repositories.
 
 ## Troubleshooting
 
 - `java -version` shows 8 but `javac -version` shows 21: check `PATH` ordering and `JAVA_HOME`.
 - `JAVA_HOME` points to a non-21 JDK: switch the shell to JDK 21 before running Gradle.
-- `AE2LT jar not found`: check `ae2lt_jar`, `AE2LT_JAR`, or the legacy `ae2lt_local_jar`.
+- `AE2LT jar not found`: this only applies when `ae2lt_maven_notation` is empty; check `ae2lt_jar`, `AE2LT_JAR`, or the legacy `ae2lt_local_jar`.
 - Gradle is using the wrong JVM: run `.\gradlew.bat --version` and check the JVM line.
 - NeoForge version conflicts: compare the three projects' `gradle.properties`, generated mod metadata, and dependency resolution results.
 
