@@ -18,8 +18,9 @@ Place the provider against the Empowerer and encode the recipe as a pattern.
 
 ## Structure
 
-* The 4 **Display Stands** must sit exactly **3 blocks away** from the Empowerer on the four
-  horizontal directions (north / south / east / west), on the same level — the standard Empowerer layout.
+* The 4 **Display Stands** must sit on the **third block** north, south, east, and west of the
+  Empowerer, on the same level. In other words, leave **2 empty blocks** between the Empowerer and
+  each Display Stand — the standard Empowerer layout.
 * The Display Stands need **power (RF)**, just like normal Empowering.
 * Before starting, the Empowerer and all 4 Display Stand item slots must be empty.
 
