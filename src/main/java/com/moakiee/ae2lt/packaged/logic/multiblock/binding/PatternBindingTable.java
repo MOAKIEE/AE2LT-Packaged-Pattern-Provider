@@ -31,11 +31,27 @@ import appeng.api.crafting.IPatternDetails;
  */
 public final class PatternBindingTable {
 
+    private static final long NEGATIVE_BINDING_TTL_TICKS = 40;
+
     private final Map<IPatternDetails, PatternBinding> bindings = new IdentityHashMap<>();
 
     @Nullable
     public PatternBinding get(IPatternDetails pattern) {
         return bindings.get(pattern);
+    }
+
+    @Nullable
+    public PatternBinding getFresh(IPatternDetails pattern, long gameTick) {
+        var binding = bindings.get(pattern);
+        if (binding == null) {
+            return null;
+        }
+        if (!binding.isMatched()
+                && gameTick - binding.computedAtTick() >= NEGATIVE_BINDING_TTL_TICKS) {
+            bindings.remove(pattern);
+            return null;
+        }
+        return binding;
     }
 
     public void put(IPatternDetails pattern, PatternBinding binding) {

@@ -447,7 +447,7 @@ public class PackagedPatternProviderLogic extends OverloadedPatternProviderLogic
     // ===== Binding =====
 
     private PatternBinding getOrComputeBinding(ServerLevel level, IPatternDetails pattern, long gameTick) {
-        var existing = bindingTable.get(pattern);
+        var existing = bindingTable.getFresh(pattern, gameTick);
         if (existing != null) {
             return existing;
         }
