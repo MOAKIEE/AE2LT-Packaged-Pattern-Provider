@@ -80,42 +80,42 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
     public BindingResult bind(ServerLevel level, BlockPos mainPos, IPatternDetails pattern) {
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
-            LOG.info("bind: skipped at {} (be={}, recognized={})",
+            LOG.debug("bind: skipped at {} (be={}, recognized={})",
                     mainPos, be == null ? "null" : be.getClass().getSimpleName(),
                     be != null && recognizesMain(level, mainPos, be));
             return null;
         }
         var candidate = findCandidateRecipe(level, mainPos, pattern);
         if (candidate == null) {
-            LOG.info("bind: no ritual recipe matched pattern inputs at {}", mainPos);
+            LOG.debug("bind: no ritual recipe matched pattern inputs at {}", mainPos);
             return null;
         }
-        LOG.info("bind: matched ritual at {} -> {}", mainPos, candidate.recipe().getClass().getSimpleName());
+        LOG.debug("bind: matched ritual at {} -> {}", mainPos, candidate.recipe().getClass().getSimpleName());
         return new BindingResult(candidate, BindingMode.REAL);
     }
 
     @Override
     public boolean canDispatch(ServerLevel level, BlockPos mainPos, Object handle) {
         if (!(handle instanceof OccultismBindHandle bind)) {
-            LOG.info("canDispatch: handle wrong type at {}", mainPos);
+            LOG.debug("canDispatch: handle wrong type at {}", mainPos);
             return false;
         }
         var be = level.getBlockEntity(mainPos);
         if (be == null || !recognizesMain(level, mainPos, be)) {
-            LOG.info("canDispatch: not recognized at {}", mainPos);
+            LOG.debug("canDispatch: not recognized at {}", mainPos);
             return false;
         }
         if (!OccultismReflection.isIdle(be)) {
-            LOG.info("canDispatch: golden bowl busy at {}", mainPos);
+            LOG.debug("canDispatch: golden bowl busy at {}", mainPos);
             return false;
         }
         var goldenHandler = OccultismReflection.itemHandler(be);
         if (goldenHandler == null || !slotEmpty(goldenHandler)) {
-            LOG.info("canDispatch: golden bowl slot not empty at {}", mainPos);
+            LOG.debug("canDispatch: golden bowl slot not empty at {}", mainPos);
             return false;
         }
         if (!OccultismReflection.hasValidPentacle(bind.recipe(), level, mainPos)) {
-            LOG.info("canDispatch: pentacle invalid for {} at {}", bind.recipe().getClass().getSimpleName(), mainPos);
+            LOG.debug("canDispatch: pentacle invalid for {} at {}", bind.recipe().getClass().getSimpleName(), mainPos);
             return false;
         }
         return true;
@@ -132,20 +132,20 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
 
         var units = expandInputUnits(inputs);
         if (units == null || units.isEmpty()) {
-            LOG.info("planWithBinding: expandInputUnits null/empty at {}", mainPos);
+            LOG.debug("planWithBinding: expandInputUnits null/empty at {}", mainPos);
             return null;
         }
 
         var match = matchInputsToRecipe(units, bind.recipe());
         if (match == null) {
-            LOG.info("planWithBinding: runtime inputs ({} units) didn't match bound recipe at {}",
+            LOG.debug("planWithBinding: runtime inputs ({} units) didn't match bound recipe at {}",
                     units.size(), mainPos);
             return null;
         }
 
         var bowls = findEmptySacrificialBowls(level, mainPos, bind.recipe());
         if (bowls == null || bowls.size() < match.ingredients().size()) {
-            LOG.info("planWithBinding: not enough empty sacrificial bowls at {} (need {}, found {})",
+            LOG.debug("planWithBinding: not enough empty sacrificial bowls at {} (need {}, found {})",
                     mainPos, match.ingredients().size(), bowls == null ? -1 : bowls.size());
             return null;
         }
@@ -250,11 +250,11 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                                                             IPatternDetails pattern) {
         var patternUnits = patternInputUnits(pattern);
         if (patternUnits == null || patternUnits.isEmpty()) {
-            LOG.info("findCandidate: patternInputUnits null/empty at {} (pattern={})",
+            LOG.debug("findCandidate: patternInputUnits null/empty at {} (pattern={})",
                     mainPos, pattern.getDefinition());
             return null;
         }
-        if (LOG.isInfoEnabled()) {
+        if (LOG.isDebugEnabled()) {
             var sb = new StringBuilder();
             for (var u : patternUnits) {
                 if (sb.length() > 0) sb.append(", ");
@@ -271,7 +271,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                             .append(" mult=").append(input.getMultiplier());
                 }
             }
-            LOG.info("findCandidate: pattern inputs at {} expandedUnits=[{}] rawInputs=[{}]",
+            LOG.debug("findCandidate: pattern inputs at {} expandedUnits=[{}] rawInputs=[{}]",
                     mainPos, sb, raw);
         }
         int scanned = 0;
@@ -295,7 +295,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
             if (matchInputsToRecipe(patternUnits, recipe) == null) {
                 inputMismatch++;
                 if (mismatchLogged < 5) {
-                    LOG.info("findCandidate: recipe {} mismatch (activation={}, ingredients={}, requiresSacrifice={}, requiresItemUse={}, itemToUse={})",
+                    LOG.debug("findCandidate: recipe {} mismatch (activation={}, ingredients={}, requiresSacrifice={}, requiresItemUse={}, itemToUse={})",
                             holder.id(),
                             ingredientFirstItems(activation),
                             ingredientListItems(ingredients),
@@ -306,11 +306,11 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                 }
                 continue;
             }
-            LOG.info("findCandidate: matched recipe {} at {} ({} pattern units)",
+            LOG.debug("findCandidate: matched recipe {} at {} ({} pattern units)",
                     holder.id(), mainPos, patternUnits.size());
             return new OccultismBindHandle(recipe);
         }
-        LOG.info("findCandidate: no match at {} (scanned={}, pentacleFail={}, missingApi={}, inputMismatch={}, patternUnits={})",
+        LOG.debug("findCandidate: no match at {} (scanned={}, pentacleFail={}, missingApi={}, inputMismatch={}, patternUnits={})",
                 mainPos, scanned, pentacleFail, missingApi, inputMismatch, patternUnits.size());
         return null;
     }
@@ -762,7 +762,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                 if (sacrifice) {
                     if (sacrificeProvidedField != null) {
                         sacrificeProvidedField.setBoolean(goldenBowl, true);
-                        LOG.info("completeDeferredRequirements: sacrificeProvided=true on {}", goldenBowl);
+                        LOG.debug("completeDeferredRequirements: sacrificeProvided=true on {}", goldenBowl);
                     } else {
                         LOG.warn("completeDeferredRequirements: sacrificeProvidedField is null; "
                                 + "ritual will stall on sacrifice gate");
@@ -771,7 +771,7 @@ public final class OccultismRitualAdapter implements MultiblockAdapter {
                 if (itemUse) {
                     if (itemUseProvidedField != null) {
                         itemUseProvidedField.setBoolean(goldenBowl, true);
-                        LOG.info("completeDeferredRequirements: itemUseProvided=true on {}", goldenBowl);
+                        LOG.debug("completeDeferredRequirements: itemUseProvided=true on {}", goldenBowl);
                     } else {
                         LOG.warn("completeDeferredRequirements: itemUseProvidedField is null; "
                                 + "ritual will stall on item-use gate");
