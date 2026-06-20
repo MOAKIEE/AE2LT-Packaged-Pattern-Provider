@@ -244,12 +244,24 @@ public final class ArsNouveauImbuementChamberAdapter implements MultiblockAdapte
             if (result.isEmpty() || !outputMatches(pattern, result)) {
                 continue;
             }
-            if (ArsReflection.getInput(recipe) == null || ArsReflection.getPedestalItems(recipe) == null) {
+            var inputIngredient = ArsReflection.getInput(recipe);
+            var pedestalIngredients = ArsReflection.getPedestalItems(recipe);
+            if (inputIngredient == null || pedestalIngredients == null) {
+                continue;
+            }
+            if (!patternInputsMatchRecipe(pattern, inputIngredient, pedestalIngredients)) {
                 continue;
             }
             return recipe;
         }
         return null;
+    }
+
+    private static boolean patternInputsMatchRecipe(IPatternDetails pattern,
+                                                    Ingredient inputIngredient,
+                                                    List<Ingredient> pedestalIngredients) {
+        var units = patternInputUnits(pattern);
+        return units != null && assignInputsToRecipe(units, inputIngredient, pedestalIngredients) != null;
     }
 
     @Nullable
@@ -481,6 +493,34 @@ public final class ArsNouveauImbuementChamberAdapter implements MultiblockAdapte
             }
         }
         return List.copyOf(units);
+    }
+
+    @Nullable
+    private static List<PlannedUnit> patternInputUnits(IPatternDetails pattern) {
+        var units = new ArrayList<PlannedUnit>();
+        long total = 0;
+        for (var input : pattern.getInputs()) {
+            var possible = input.getPossibleInputs();
+            if (possible.length == 0 || !(possible[0].what() instanceof AEItemKey itemKey)) {
+                return null;
+            }
+            long stackAmount = Math.max(1L, possible[0].amount());
+            long multiplier = Math.max(1L, input.getMultiplier());
+            long amount;
+            try {
+                amount = Math.multiplyExact(stackAmount, multiplier);
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+            total += amount;
+            if (total > MAX_INPUT_UNITS) {
+                return null;
+            }
+            for (long i = 0; i < amount; i++) {
+                units.add(new PlannedUnit(itemKey));
+            }
+        }
+        return units.isEmpty() ? null : List.copyOf(units);
     }
 
     private static ItemStack resultItem(Object recipe, ServerLevel level) {
